@@ -15,6 +15,8 @@ from openpyxl import load_workbook
 from app.database import get_db
 from app.models import Terminal, StatusHistory, User
 from app.auth import SECRET_KEY, ALGORITHM
+from app.models import Terminal, StatusHistory, User, ApkFile
+import os
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -318,14 +320,24 @@ async def terminal_ping(
     if terminal:
         terminal.last_seen = datetime.now(MSK)
         db.commit()
+        latest_apk = db.query(ApkFile).order_by(ApkFile.id.desc()).first()
+        apk_url = None
+        apk_version = None
+        if latest_apk:
+                if latest_apk.target_serial is None or latest_apk.target_serial == terminal.serial_number:
+                    apk_url = f"/static/apk/{latest_apk.filename}"
+                    apk_version = latest_apk.version
+
         return {
-            "status": "ok",
-            "last_seen": terminal.last_seen.isoformat(),
-            "brightness": terminal.brightness or 255,
-            "volume": terminal.volume or 100,
-            "bluetooth": terminal.bluetooth if terminal.bluetooth is not None else 1
-        }
-    return {"status": "error", "detail": "Terminal not found"}
+                "status": "ok",
+                "last_seen": terminal.last_seen.isoformat(),
+                "brightness": terminal.brightness or 255,
+                "volume": terminal.volume or 100,
+                "bluetooth": terminal.bluetooth if terminal.bluetooth is not None else 1,
+                "apk_url": apk_url,
+                "apk_version": apk_version
+            }
+    return {"status": "error", "detail": "Terminal not found", "apk_url": None}
     
 
 @router.get("/check-online")
@@ -350,6 +362,105 @@ async def terminal_online_status(
         "last_seen": terminal.last_seen.strftime('%d.%m.%Y %H:%M:%S') if terminal.last_seen else None,
         "terminal_id": terminal.id
     }
+
+@router.get("/apk/list", response_class=HTMLResponse)
+async def apk_list(request: Request, db: Session = Depends(get_db)):
+    apks = db.query(ApkFile).order_by(ApkFile.id.desc()).all()
+    return templates.TemplateResponse("apk_list.html", {
+        "request": request,
+        "apks": apks
+    })
+
+
+@router.post("/apk/upload")
+async def apk_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    version: str = Form(...),
+    description: str = Form(""),
+    target_serial: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    user = get_user_from_cookie(request, db)
+    if not user or user.role != "admin":
+        return HTMLResponse("Доступ запрещён", status_code=403)
+
+    if not file.filename or not file.filename.endswith('.apk'):
+        return HTMLResponse("Только APK файлы", status_code=400)
+
+    filepath = f"app/static/apk/{file.filename}"
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    apk = ApkFile(
+        filename=file.filename,
+        version=version,
+        description=description or "",
+        target_serial=target_serial or None
+    )
+    db.add(apk)
+    db.commit()
+
+    return RedirectResponse(url="/terminals/apk/list", status_code=303)
+
+@router.post("/apk/{apk_id}/delete")
+async def apk_delete(apk_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if not user or user.role != "admin":
+        return HTMLResponse("Доступ запрещён", status_code=403)
+
+    apk = db.query(ApkFile).filter(ApkFile.id == apk_id).first()
+    if apk:
+        # Удаляем файл
+        filepath = f"app/static/apk/{apk.filename}"
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        db.delete(apk)
+        db.commit()
+
+    return RedirectResponse(url="/terminals/apk/list", status_code=303)
+
+@router.get("/apk/upload", response_class=HTMLResponse)
+async def apk_upload_form(request: Request, db: Session = Depends(get_db)):
+    terminals = db.query(Terminal).order_by(Terminal.serial_number).all()
+    return templates.TemplateResponse("apk_upload.html", {
+        "request": request,
+        "terminals": terminals
+    })
+
+
+@router.post("/apk/upload")
+async def apk_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    version: str = Form(...),
+    description: str = Form(""),
+    target_serial: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    user = get_user_from_cookie(request, db)
+    if not user or user.role != "admin":
+        return HTMLResponse("Доступ запрещён", status_code=403)
+
+    if not file.filename or not file.filename.endswith('.apk'):
+        return HTMLResponse("Только APK файлы", status_code=400)
+
+    filepath = f"app/static/apk/{file.filename}"
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    apk = ApkFile(
+        filename=file.filename,
+        version=version,
+        description=description or "",
+        target_serial=target_serial if target_serial else None
+    )
+    db.add(apk)
+    db.commit()
+
+    return RedirectResponse(url="/terminals/apk/list", status_code=303)
 
 @router.get("/{terminal_id}", response_class=HTMLResponse)
 async def terminal_card(

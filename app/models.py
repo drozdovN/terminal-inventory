@@ -76,3 +76,13 @@ class StatusHistory(Base):
 
     terminal = relationship("Terminal", back_populates="history")
     changed_by_user = relationship("User", back_populates="status_changes")
+
+class ApkFile(Base):
+    __tablename__ = "apk_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    version = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    target_serial = Column(String, nullable=True)  # null = всем, "SN123" = конкретному
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(MSK))
