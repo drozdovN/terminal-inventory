@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход</title>
+    <link rel="stylesheet" href="/static/style.css?v=5">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5;
+            margin: 0;
+        }
+        .login-container {
+            background: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-container h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-container form {
+            box-shadow: none;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Склад</h1>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form action="/auth/login" method="post" autocomplete="off">
+            <label>Логин:</label>
+            <input type="text" name="username" required autocomplete="off">
+            
+            <label>Пароль:</label>
+            <input type="password" name="password" required autocomplete="new-password">
+            
+            <button type="submit" style="width: 100%;">Войти</button>
+        </form>
+    </div>
+</body>
+</html>

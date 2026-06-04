@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Партии</h1>
+
+<table>
+    <tr>
+        <th>Номер партии</th>
+        <th>Всего</th>
+        <th>Склад</th>
+        <th>Забронировано</th>
+        <th>Брак</th>
+        <th>В ремонте</th>
+        <th>Отгружено</th>
+    </tr>
+    {% for box in boxes %}
+    <tr>
+        <td><a href="/boxes?box={{ box.box_number }}">{{ box.box_number }}</a></td>
+        <td>{{ box.total }}</td>
+        <td>{{ box.warehouse }}</td>
+        <td>{{ box.reserved }}</td>
+        <td>{{ box.defective }}</td>
+        <td>{{ box.repair }}</td>
+        <td>{{ box.shipped }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% if selected_box %}
+    <h2>Терминалы в коробке {{ selected_box }}</h2>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Модель</th>
+            <th>Серийный номер</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        {% for t in terminals %}
+        <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.model }}</td>
+            <td>{{ t.serial_number }}</td>
+            <td>
+                <span class="status-badge status-{{ t.status }}">
+                    {% if t.status == 'warehouse' %}Склад
+                    {% elif t.status == 'reserved' %}Забронировано
+                    {% elif t.status == 'defective' %}Брак
+                    {% elif t.status == 'repair' %}Ремонт
+                    {% elif t.status == 'shipped' %}Отгружено
+                    {% else %}{{ t.status }}{% endif %}
+                </span>
+            </td>
+            <td><a href="/terminals/{{ t.id }}" class="btn small">📋</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endif %}
+{% endblock %}

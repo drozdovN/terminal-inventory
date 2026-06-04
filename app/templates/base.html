@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Inventory</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico?v=3">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-inner">
+            <div class="nav-left">
+                <a href="/">Главная</a>
+                <a href="/terminals">Терминалы</a>
+                <a href="/boxes">Партии</a>
+                <a href="/history">История изменений</a>
+                <a href="/admin/users">Пользователи</a>
+            </div>
+            <div class="nav-right">
+                <a href="/auth/logout" title="Выход">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <h3>Удаление терминала</h3>
+        <p id="deleteModalText">Вы уверены, что хотите удалить терминал?</p>
+        <div class="modal-buttons">
+            <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+            <button class="danger" id="confirmDeleteBtn">Удалить</button>
+        </div>
+    </div>
+</div>
+<script>
+    let deleteForm = null;
+
+    function showDeleteModal(form, terminalId) {
+        deleteForm = form;
+        document.getElementById('deleteModalText').textContent = 
+            'Вы уверены, что хотите удалить терминал?';
+        document.getElementById('deleteModal').classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('deleteModal').classList.remove('show');
+        deleteForm = null;
+    }
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+        if (deleteForm) {
+            deleteForm.submit();
+        }
+    });
+
+    // Закрытие по клику на фон
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Управление пользователями</h1>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<h2>Добавить пользователя</h2>
+<form action="/admin/users/add" method="post">
+    <label>Логин:</label>
+    <input type="text" name="username" required autocomplete="off">
+
+    <label>Пароль:</label>
+    <input type="password" name="password" required autocomplete="new-password">
+
+    <label>Роль:</label>
+    <select name="role" required>
+        <option value="warehouse">Склад</option>
+        <option value="admin">Админ</option>
+    </select>
+
+    <button type="submit" class="success">Добавить</button>
+</form>
+
+<h2>Список пользователей</h2>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Логин</th>
+        <th>Роль</th>
+        <th>Создан</th>
+        <th>Действия</th>
+    </tr>
+    {% for u in users %}
+    <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.username }}{% if u.id == current_user.id %} (вы){% endif %}</td>
+        <td>{{ u.role }}</td>
+        <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>
+            {% if u.id != current_user.id %}
+            <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
+                <button type="submit" class="danger small">✕</button>
+            </form>
+            {% else %}
+            —
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

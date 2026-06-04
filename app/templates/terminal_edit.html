@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Редактировать терминал #{{ terminal.id }}</h1>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form action="/terminals/{{ terminal.id }}/edit" method="post">
+    <label>Модель:</label>
+    <input type="text" name="model" value="{{ terminal.model }}" required>
+
+    <label>Версия прошивки:</label>
+    <input type="text" name="firmware_version" value="{{ terminal.firmware_version }}" required>
+
+    <label>Серийный номер:</label>
+    <input type="text" name="serial_number" value="{{ terminal.serial_number }}" required>
+
+    <label>Номер коробки:</label>
+    <input type="text" name="box_number" value="{{ terminal.box_number }}" required>
+
+    <label>Статус:</label>
+    <select name="status" required>
+        <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
+        <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
+        <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
+        <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
+        <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
+    </select>
+
+    <label>Банк (для reserved/shipped):</label>
+    <input type="text" name="bank" value="{{ terminal.bank or '' }}">
+
+    <label>Тип брака (для defective):</label>
+    <select name="defect_type">
+        <option value="">—</option>
+        <option value="display" {% if terminal.defect_type == 'display' %}selected{% endif %}>Экран</option>
+        <option value="battery" {% if terminal.defect_type == 'battery' %}selected{% endif %}>Батарея</option>
+        <option value="reader" {% if terminal.defect_type == 'reader' %}selected{% endif %}>Считыватель</option>
+        <option value="firmware" {% if terminal.defect_type == 'firmware' %}selected{% endif %}>Прошивка</option>
+        <option value="case" {% if terminal.defect_type == 'case' %}selected{% endif %}>Корпус</option>
+        <option value="other" {% if terminal.defect_type == 'other' %}selected{% endif %}>Иное</option>
+    </select>
+
+    <label>Комментарий к браку:</label>
+    <textarea name="defect_comment" rows="3">{{ terminal.defect_comment or '' }}</textarea>
+
+    <label>Ответственный:</label>
+    <input type="text" name="responsible_person" value="{{ terminal.responsible_person }}" required>
+
+    <label>Дата прихода:</label>
+    <input type="date" name="arrival_date" value="{{ terminal.arrival_date }}" required>
+
+    <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1> Главная</h1>
+
+<div class="dashboard-cards">
+    <div class="card warehouse">
+        <h3>На складе</h3>
+        <div class="number">{{ by_status.get('warehouse', 0) }}</div>
+    </div>
+    <div class="card reserved">
+        <h3>Забронировано</h3>
+        <div class="number">{{ by_status.get('reserved', 0) }}</div>
+    </div>
+    <div class="card defective">
+        <h3>Брак</h3>
+        <div class="number">{{ by_status.get('defective', 0) }}</div>
+    </div>
+    <div class="card repair">
+        <h3>В ремонте</h3>
+        <div class="number">{{ by_status.get('repair', 0) }}</div>
+    </div>
+    <div class="card shipped">
+        <h3>Отгружено</h3>
+        <div class="number">{{ by_status.get('shipped', 0) }}</div>
+    </div>
+</div>
+
+<p style="font-size: 18px; color: #666;">Всего терминалов: <strong>{{ total }}</strong></p>
+{% endblock %}

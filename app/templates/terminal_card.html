@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Терминал #{{ terminal.id }}</h1>
+
+<table>
+    <tr><td>Модель</td><td>{{ terminal.model }}</td></tr>
+    <tr><td>Прошивка</td><td>{{ terminal.firmware_version }}</td></tr>
+    <tr><td>Серийный номер</td><td>{{ terminal.serial_number }}</td></tr>
+    <tr><td>Номер коробки</td><td>{{ terminal.box_number }}</td></tr>
+    <tr>
+        <td>Статус</td>
+        <td>
+            <span class="status-badge status-{{ terminal.status }}">
+                {% if terminal.status == 'warehouse' %}Склад
+                {% elif terminal.status == 'reserved' %}Забронировано
+                {% elif terminal.status == 'defective' %}Брак
+                {% elif terminal.status == 'repair' %}Ремонт
+                {% elif terminal.status == 'shipped' %}Отгружено
+                {% else %}{{ terminal.status }}{% endif %}
+            </span>
+            <!-- Онлайн индикатор -->
+            <span id="onlineIndicator" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: gray; margin-left: 10px; vertical-align: middle;" title="Проверка..."></span>
+            <small id="lastSeenText" style="color: #888; margin-left: 5px;"></small>
+        </td>
+    </tr>
+    <tr><td>Банк</td><td>{{ terminal.bank or '—' }}</td></tr>
+    <tr>
+        <td>Тип брака</td>
+        <td>
+            {% if terminal.defect_type == 'display' %}Экран
+            {% elif terminal.defect_type == 'battery' %}Батарея
+            {% elif terminal.defect_type == 'reader' %}Считыватель
+            {% elif terminal.defect_type == 'firmware' %}Прошивка
+            {% elif terminal.defect_type == 'case' %}Корпус
+            {% elif terminal.defect_type == 'other' %}Иное
+            {% else %}{{ terminal.defect_type or '—' }}{% endif %}
+        </td>
+    </tr>
+    <tr><td>Комментарий к браку</td><td>{{ terminal.defect_comment or '—' }}</td></tr>
+    <tr><td>Ответственный</td><td>{{ terminal.responsible_person }}</td></tr>
+    <tr><td>Дата прихода</td><td>{{ terminal.arrival_date.strftime('%d.%m.%Y') }}</td></tr>
+</table>
+
+<h2>Настройки терминала</h2>
+<form action="/terminals/{{ terminal.id }}/settings" method="post">
+    <label>Яркость: <span id="brightnessValue">{{ terminal.brightness or 255 }}</span></label>
+    <input type="range" name="brightness" min="1" max="255" value="{{ terminal.brightness }}"
+           oninput="document.getElementById('brightnessValue').textContent = this.value" style="margin-bottom: 5px;">
+    
+    <label>Громкость: <span id="volumeValue">{{ terminal.volume or 100 }}</span>%</label>
+    <input type="range" name="volume" min="1" max="100" value="{{ terminal.volume }}"
+           oninput="document.getElementById('volumeValue').textContent = this.value" style="margin-bottom: 15px;">
+    
+    <label>Bluetooth:</label>
+     <select name="bluetooth" style="margin-bottom: 15px;">
+      <option value="0" {% if terminal.bluetooth == 0 %}selected{% endif %}>Выключен</option>
+      <option value="1" {% if terminal.bluetooth == 1 %}selected{% endif %}>Включён</option>
+     </select>
+    
+    <button type="submit" class="btn">Изменить</button>
+</form>
+
+<div class="action-buttons">
+    <a href="/terminals/{{ terminal.id }}/edit" class="btn">Редактировать</a>
+    <form action="/terminals/{{ terminal.id }}/delete" method="post" class="inline-form" onsubmit="return false;">
+        <button type="button" class="danger" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">Удалить</button>
+    </form>
+</div>
+
+<h2>Сменить статус</h2>
+<form action="/terminals/{{ terminal.id }}/status" method="post">
+    <label>Новый статус:</label>
+    <select name="new_status" required>
+        <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
+        <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
+        <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
+        <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
+        <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
+    </select>
+
+    <label>Банк (для reserved/shipped):</label>
+    <input type="text" name="bank">
+
+    <label>Тип брака (для defective):</label>
+    <select name="defect_type">
+        <option value="">—</option>
+        <option value="display">Экран</option>
+        <option value="battery">Батарея</option>
+        <option value="reader">Считыватель</option>
+        <option value="firmware">Прошивка</option>
+        <option value="case">Корпус</option>
+        <option value="other">Иное</option>
+    </select>
+
+    <label>Комментарий к браку:</label>
+    <textarea name="defect_comment" rows="3"></textarea>
+
+    <label>Примечание к изменению:</label>
+    <input type="text" name="comment">
+
+    <button type="submit">Обновить статус</button>
+</form>
+
+<h2>История изменений</h2>
+<table>
+    <tr>
+        <th>Дата</th>
+        <th>Старый статус</th>
+        <th>Новый статус</th>
+        <th>Кто изменил</th>
+        <th>Примечание</th>
+    </tr>
+    {% for h in history %}
+    <tr>
+        <td>{{ h.changed_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>
+            {% if h.old_status == 'warehouse' %}Склад
+            {% elif h.old_status == 'reserved' %}Забронировано
+            {% elif h.old_status == 'defective' %}Брак
+            {% elif h.old_status == 'repair' %}Ремонт
+            {% elif h.old_status == 'shipped' %}Отгружено
+            {% elif h.old_status is none %}—
+            {% else %}{{ h.old_status }}{% endif %}
+        </td>
+        <td>
+            {% if h.new_status == 'warehouse' %}Склад
+            {% elif h.new_status == 'reserved' %}Забронировано
+            {% elif h.new_status == 'defective' %}Брак
+            {% elif h.new_status == 'repair' %}Ремонт
+            {% elif h.new_status == 'shipped' %}Отгружено
+            {% else %}{{ h.new_status }}{% endif %}
+        </td>
+        <td>{{ h.changed_by_user.username }}</td>
+        <td>{{ h.comment or '—' }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+    async function checkOnlineStatus() {
+        try {
+            const response = await fetch('/terminals/check-online?serial_number={{ terminal.serial_number }}');
+            const data = await response.json();
+            
+            const indicator = document.getElementById('onlineIndicator');
+            const lastSeenText = document.getElementById('lastSeenText');
+            
+            if (data.online) {
+                indicator.style.background = '#2ecc71';
+                indicator.title = 'Онлайн';
+                if (data.last_seen) {
+                    lastSeenText.textContent = 'Был в сети: ' + data.last_seen;
+                }
+            } else {
+                indicator.style.background = '#e74c3c';
+                indicator.title = 'Офлайн';
+                if (data.last_seen) {
+                    lastSeenText.textContent = 'Последняя активность: ' + data.last_seen;
+                } else {
+                    lastSeenText.textContent = 'Никогда не был в сети';
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка проверки статуса', e);
+        }
+    }
+
+    checkOnlineStatus();
+    setInterval(checkOnlineStatus, 30000);
+</script>
+{% endblock %}

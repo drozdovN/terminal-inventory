@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>История изменений</h1>
+
+<table>
+    <tr>
+        <th>Дата</th>
+        <th>Терминал</th>
+        <th>Серийный номер</th>
+        <th>Старый статус</th>
+        <th>Новый статус</th>
+        <th>Банк</th>
+        <th>Тип брака</th>
+        <th>Кто изменил</th>
+        <th>Примечание</th>
+    </tr>
+    {% for h in history %}
+    <tr>
+        <td>{{ h.changed_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td><a href="/terminals/{{ h.terminal_id }}">#{{ h.terminal_id }}</a></td>
+        <td>{{ h.terminal.serial_number }}</td>
+        <td>
+            {% if h.old_status == 'warehouse' %}Склад
+            {% elif h.old_status == 'reserved' %}Забронировано
+            {% elif h.old_status == 'defective' %}Брак
+            {% elif h.old_status == 'repair' %}Ремонт
+            {% elif h.old_status == 'shipped' %}Отгружено
+            {% elif h.old_status is none %}—
+            {% else %}{{ h.old_status }}{% endif %}
+        </td>
+        <td>
+            {% if h.new_status == 'warehouse' %}Склад
+            {% elif h.new_status == 'reserved' %}Забронировано
+            {% elif h.new_status == 'defective' %}Брак
+            {% elif h.new_status == 'repair' %}Ремонт
+            {% elif h.new_status == 'shipped' %}Отгружено
+            {% else %}{{ h.new_status }}{% endif %}
+        </td>
+        <td>{{ h.new_bank or '—' }}</td>
+        <td>
+            {% if h.new_defect_type == 'display' %}Экран
+            {% elif h.new_defect_type == 'battery' %}Батарея
+            {% elif h.new_defect_type == 'reader' %}Считыватель
+            {% elif h.new_defect_type == 'firmware' %}Прошивка
+            {% elif h.new_defect_type == 'case' %}Корпус
+            {% elif h.new_defect_type == 'other' %}Иное
+            {% else %}{{ h.new_defect_type or '—' }}{% endif %}
+        </td>
+        <td>{{ h.changed_by_user.username }}</td>
+        <td>{{ h.comment or '—' }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% if not history %}
+<p>История пуста.</p>
+{% endif %}
+{% endblock %}

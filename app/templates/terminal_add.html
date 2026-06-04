@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Добавить терминал</h1>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+<form action="/terminals/add" method="post">
+    <label>Модель:</label>
+    <input type="text" name="model" required>
+
+    <label>Версия прошивки:</label>
+    <input type="text" name="firmware_version" required>
+
+    <label>Серийный номер:</label>
+    <input type="text" name="serial_number" required>
+
+    <label>Номер коробки:</label>
+    <input type="text" name="box_number" required>
+
+    <label>Дата прихода:</label>
+    <input type="date" name="arrival_date" required>
+
+    <label>Ответственный:</label>
+    <input type="text" name="responsible_person" required>
+
+    <button type="submit" class="success">Добавить</button>
+</form>
+{% endblock %}

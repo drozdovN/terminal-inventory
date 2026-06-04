@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Импорт из Excel</h1>
+
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+
+{% if success %}
+<div class="success">{{ success }}</div>
+{% endif %}
+
+<div style="background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h2>Пример</h2>
+    <p>Файл должен быть в формате <strong>.Excel (.xlsx)</strong></p>
+    <table>
+        <tr>
+            <th>Колонка</th>
+            <th>Название</th>
+            <th>Пример</th>
+        </tr>
+        <tr><td>A</td><td>Модель</td><td>T6</td></tr>
+        <tr><td>B</td><td>Версия прошивки</td><td>Z6532AA_ATMO_S6_TSEC_V2.0.6_user</td></tr>
+        <tr><td>C</td><td>Серийный номер</td><td>P651900014644</td></tr>
+        <tr><td>D</td><td>Номер коробки</td><td>BOX-001</td></tr>
+        <tr><td>E</td><td>Дата прихода</td><td>01-05-2026</td></tr>
+        <tr><td>F</td><td>Ответственный</td><td>Иванов А.А.</td></tr>
+    </table>
+</div>
+
+<form action="/terminals/import" method="post" enctype="multipart/form-data" style="margin-top: 20px;">
+    <label>Выберите файл Excel (.xlsx):</label>
+    <input type="file" name="file" accept=".xlsx,.xls" required>
+    <button type="submit" class="success">Импортировать</button>
+</form>
+
+{% if errors %}
+<div style="margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12;">
+    <h3>⚠️ Ошибки при импорте:</h3>
+    <ul>
+        {% for e in errors %}
+        <li style="color: #e67e22;">{{ e }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endblock %}
