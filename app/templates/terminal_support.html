@@ -28,6 +28,8 @@
         ws.onopen = () => {
             statusEl.textContent = 'Подключено к серверу';
             statusEl.style.color = 'green';
+            // Запрашиваем скриншот у терминала
+            ws.send(JSON.stringify({type: 'request_screen_capture'}));
         };
         
         ws.onmessage = (event) => {
