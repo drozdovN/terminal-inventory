@@ -16,6 +16,8 @@ from app.database import get_db
 from app.models import Terminal, StatusHistory, User
 from app.auth import SECRET_KEY, ALGORITHM
 from app.models import Terminal, StatusHistory, User, ApkFile
+from fastapi import WebSocket, WebSocketDisconnect
+from app.websocket_manager import manager
 import os
 
 router = APIRouter()
@@ -461,6 +463,56 @@ async def apk_upload(
     db.commit()
 
     return RedirectResponse(url="/terminals/apk/list", status_code=303)
+
+@router.websocket("/ws/terminal/{serial_number}")
+async def websocket_terminal(websocket: WebSocket, serial_number: str, db: Session = Depends(get_db)):
+    # Проверяем, существует ли терминал
+    terminal = db.query(Terminal).filter(Terminal.serial_number == serial_number).first()
+    if not terminal:
+        await websocket.close(code=4004, reason="Terminal not found")
+        return
+
+    await manager.connect_terminal(serial_number, websocket)
+    try:
+        while True:
+            # Получаем кадр от терминала
+            data = await websocket.receive_json()
+            # Пересылаем в браузер поддержки
+            await manager.send_to_support(terminal.id, data)
+    except WebSocketDisconnect:
+        manager.disconnect_terminal(serial_number)
+    except Exception:
+        manager.disconnect_terminal(serial_number)
+
+
+@router.websocket("/ws/support/{terminal_id}")
+async def websocket_support(websocket: WebSocket, terminal_id: int, db: Session = Depends(get_db)):
+    terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()
+    if not terminal:
+        await websocket.close(code=4004, reason="Terminal not found")
+        return
+
+    await manager.connect_support(terminal_id, websocket)
+    try:
+        while True:
+            # Получаем клик/команду от браузера
+            data = await websocket.receive_json()
+            # Пересылаем на терминал
+            await manager.send_to_terminal(terminal.serial_number, data)
+    except WebSocketDisconnect:
+        manager.disconnect_support(terminal_id)
+    except Exception:
+        manager.disconnect_support(terminal_id)
+
+@router.get("/{terminal_id}/support", response_class=HTMLResponse)
+async def terminal_support_page(terminal_id: int, request: Request, db: Session = Depends(get_db)):
+    terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()
+    if not terminal:
+        return HTMLResponse("Терминал не найден", status_code=404)
+    return templates.TemplateResponse("terminal_support.html", {
+        "request": request,
+        "terminal": terminal
+    })        
 
 @router.get("/{terminal_id}", response_class=HTMLResponse)
 async def terminal_card(

@@ -65,6 +65,7 @@
     <form action="/terminals/{{ terminal.id }}/delete" method="post" class="inline-form" onsubmit="return false;">
         <button type="button" class="danger" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">Удалить</button>
     </form>
+    <a href="/terminals/{{ terminal.id }}/support" class="btn success">Подключиться</a>
 </div>
 
 <h2>Сменить статус</h2>
