@@ -5,7 +5,7 @@
 <p>Статус подключения: <span id="status" style="color: gray;">Ожидание...</span></p>
 
 <div style="position: relative; display: inline-block; border: 2px solid #333; margin-top: 10px;">
-    <canvas id="screen" width="480" height="800" style="background: #000; cursor: crosshair;"></canvas>
+    <canvas id="screen" width="450" height="800" style="background: #000; cursor: crosshair;"></canvas>
 </div>
 
 <p style="margin-top: 10px; color: #888;">Кликните по экрану для эмуляции касания</p>
@@ -28,7 +28,6 @@
         ws.onopen = () => {
             statusEl.textContent = 'Подключено к серверу';
             statusEl.style.color = 'green';
-            // Запрашиваем скриншот у терминала
             ws.send(JSON.stringify({type: 'request_screen_capture'}));
         };
         
@@ -36,9 +35,9 @@
             const data = JSON.parse(event.data);
             if (data.type === 'frame') {
                 img.onload = () => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+                    canvas.width = 480;
+                    canvas.height = 800;
+                    ctx.drawImage(img, 0, 0, 480, 800);
                 };
                 img.src = 'data:image/jpeg;base64,' + data.data;
             }
@@ -60,16 +59,12 @@
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
+        const scaleX = 480 / rect.width;
+        const scaleY = 800 / rect.height;
         const x = Math.round((e.clientX - rect.left) * scaleX);
         const y = Math.round((e.clientY - rect.top) * scaleY);
         
-        ws.send(JSON.stringify({
-            type: 'tap',
-            x: x,
-            y: y
-        }));
+        ws.send(JSON.stringify({ type: 'tap', x: x, y: y }));
         
         // Визуальная обратная связь
         ctx.beginPath();
@@ -77,7 +72,9 @@
         ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
         ctx.fill();
         setTimeout(() => {
-            if (img.src) ctx.drawImage(img, 0, 0);
+            if (img.src) {
+                ctx.drawImage(img, 0, 0, 480, 800);
+            }
         }, 300);
     });
 
