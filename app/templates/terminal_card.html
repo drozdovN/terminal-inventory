@@ -6,7 +6,7 @@
     <tr><td>Модель</td><td>{{ terminal.model }}</td></tr>
     <tr><td>Прошивка</td><td>{{ terminal.firmware_version }}</td></tr>
     <tr><td>Серийный номер</td><td>{{ terminal.serial_number }}</td></tr>
-    <tr><td>Номер коробки</td><td>{{ terminal.box_number }}</td></tr>
+    <tr><td>Номер партии</td><td>{{ terminal.box_number }}</td></tr>
     <tr>
         <td>Статус</td>
         <td>
@@ -18,9 +18,6 @@
                 {% elif terminal.status == 'shipped' %}Отгружено
                 {% else %}{{ terminal.status }}{% endif %}
             </span>
-            <!-- Онлайн индикатор -->
-    
-            <small id="lastSeenText" style="color: #888; margin-left: 5px;"></small>
         </td>
     </tr>
     <tr><td>Банк</td><td>{{ terminal.bank or '—' }}</td></tr>
@@ -40,11 +37,20 @@
     <tr><td>Дата прихода</td><td>{{ terminal.arrival_date.strftime('%d.%m.%Y') }}</td></tr>
 </table>
 
+{% set cu = get_current_user(request) %}
+{% if cu and cu.role == 'admin' %}
+<div class="action-buttons">
+    <a href="/terminals/{{ terminal.id }}/edit" class="btn">Редактировать</a>
+    <form action="/terminals/{{ terminal.id }}/delete" method="post" class="inline-form" onsubmit="return false;">
+        <button type="button" class="danger" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">Удалить</button>
+    </form>
+</div>
+{% endif %}
 
 <h2>Сменить статус</h2>
 <form action="/terminals/{{ terminal.id }}/status" method="post">
     <label>Новый статус:</label>
-    <select name="new_status" required>
+    <select name="new_status" required id="statusSelect">
         <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
         <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
         <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
@@ -52,27 +58,29 @@
         <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
     </select>
 
-    <label>Банк (для reserved/shipped):</label>
-    <input type="text" name="bank">
+    <div id="bankBlock" style="display: none;">
+        <label>Банк:</label>
+        <input type="text" name="bank" minlength="2" maxlength="100">
+    </div>
 
     <div id="defectBlock" style="display: none;">
-    <label>Тип брака:</label>
-    <select name="defect_type">
-        <option value="">—</option>
-        <option value="display">Экран</option>
-        <option value="battery">Батарея</option>
-        <option value="reader">Считыватель</option>
-        <option value="firmware">Прошивка</option>
-        <option value="case">Корпус</option>
-        <option value="other">Иное</option>
-    </select>
+        <label>Тип брака:</label>
+        <select name="defect_type">
+            <option value="">—</option>
+            <option value="display">Экран</option>
+            <option value="battery">Батарея</option>
+            <option value="reader">Считыватель</option>
+            <option value="firmware">Прошивка</option>
+            <option value="case">Корпус</option>
+            <option value="other">Иное</option>
+        </select>
 
-    <label>Комментарий к браку:</label>
-    <textarea name="defect_comment" rows="3"></textarea>
-</div>
+        <label>Комментарий к браку:</label>
+        <textarea name="defect_comment" rows="3" minlength="5" maxlength="500"></textarea>
+    </div>
 
     <label>Примечание к изменению:</label>
-    <input type="text" name="comment">
+    <input type="text" name="comment" maxlength="500">
 
     <button type="submit">Обновить статус</button>
 </form>
@@ -113,20 +121,29 @@
 </table>
 
 <script>
-    const statusSelect = document.querySelector('select[name="new_status"]');
+    const statusSelect = document.getElementById('statusSelect');
     const defectBlock = document.getElementById('defectBlock');
+    const bankBlock = document.getElementById('bankBlock');
 
-    function toggleDefectBlock() {
+    function toggleBlocks() {
         const val = statusSelect.value;
-        if (val === 'defective' || val === 'repair') {
-            defectBlock.style.display = 'block';
-        } else {
-            defectBlock.style.display = 'none';
-        }
+
+        // Блок брака
+        const showDefect = (val === 'defective' || val === 'repair');
+        defectBlock.style.display = showDefect ? 'block' : 'none';
+        defectBlock.querySelectorAll('select, textarea, input').forEach(el => {
+            el.required = showDefect;
+        });
+
+        // Блок банка
+        const showBank = (val === 'reserved' || val === 'shipped');
+        bankBlock.style.display = showBank ? 'block' : 'none';
+        bankBlock.querySelectorAll('input').forEach(el => {
+            el.required = showBank;
+        });
     }
 
-    statusSelect.addEventListener('change', toggleDefectBlock);
-    toggleDefectBlock(); // при загрузке
+    statusSelect.addEventListener('change', toggleBlocks);
+    toggleBlocks();
 </script>
-
 {% endblock %}

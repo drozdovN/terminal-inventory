@@ -9,6 +9,7 @@ from app.routers import auth_router, terminals_router, boxes_router, history_rou
 from app.models import Terminal
 from app.middleware import CurrentUserMiddleware
 from app.templates import templates
+from app.models import Terminal, StatusHistory
 
 Base.metadata.create_all(bind=engine)
 
@@ -40,9 +41,15 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     total = db.query(Terminal).count()
     statuses = db.query(Terminal.status, func.count(Terminal.id)).group_by(Terminal.status).all()
     by_status = {s: c for s, c in statuses}
+    
+    recent_history = db.query(StatusHistory).order_by(
+        StatusHistory.changed_at.desc()
+    ).limit(5).all()
+    
     return render(request, "dashboard.html", {
         "total": total,
-        "by_status": by_status
+        "by_status": by_status,
+        "recent_history": recent_history
     })
 
 @app.middleware("http")

@@ -1,87 +1,186 @@
 {% extends "base.html" %}
+
+{% block title %}Терминалы{% endblock %}
+
+{% block breadcrumb %}
+    <span>Терминалы</span>
+{% endblock %}
+
 {% block content %}
-<h1>Терминалы</h1>
 
-<div class="filter-bar">
-    <a href="/terminals" {% if not request.query_params.get('status') %}class="active"{% endif %}>Все</a>
-    <a href="/terminals?status=warehouse" {% if request.query_params.get('status') == 'warehouse' %}class="active"{% endif %}>Склад</a>
-    <a href="/terminals?status=reserved" {% if request.query_params.get('status') == 'reserved' %}class="active"{% endif %}>Забронировано</a>
-    <a href="/terminals?status=defective" {% if request.query_params.get('status') == 'defective' %}class="active"{% endif %}>Брак</a>
-    <a href="/terminals?status=repair" {% if request.query_params.get('status') == 'repair' %}class="active"{% endif %}>Ремонт</a>
-    <a href="/terminals?status=shipped" {% if request.query_params.get('status') == 'shipped' %}class="active"{% endif %}>Отгружено</a>
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="hard-drive"></i>
+        <span>Терминалы</span>
+    </div>
 </div>
 
-<form class="search-box" action="/terminals" method="get">
-    <input type="search" name="search" placeholder="Поиск по серийному номеру, модели, коробке, банку..." value="{{ search or '' }}" autocomplete="off">
-    <button type="submit">Найти</button>
-    {% if search %}<a href="/terminals" class="btn">Сбросить</a>{% endif %}
-</form>
-
-<div class="action-buttons mb-20">
-    <a href="/terminals/add" class="btn success">+ Добавить терминал</a>
-    <a href="/terminals/import" class="btn">Импорт из Excel</a>
-    <a href="/terminals/export" class="btn">Экспорт в Excel</a>
-    <button type="button" class="btn" onclick="openBulkModal()" id="bulkActionBtn" disabled>Массовая смена статуса</button>
+<!-- Верхние кнопки -->
+<div class="page-actions">
+    <a href="/terminals/add" class="btn">
+        <i data-lucide="plus"></i>
+        <span>Добавить</span>
+    </a>
+    <a href="/terminals/import" class="btn secondary">
+        <i data-lucide="download"></i>
+        <span>Импорт</span>
+    </a>
+    <a href="/terminals/export" class="btn secondary">
+        <i data-lucide="upload"></i>
+        <span>Экспорт</span>
+    </a>
+    <button type="button" class="btn secondary" onclick="openBulkModal()" id="bulkActionBtn" disabled>
+        <i data-lucide="edit-3"></i>
+        <span>Массовая смена</span>
+    </button>
 </div>
 
-<table>
-    <tr>
-        <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
-        <th>№</th>
-        <th>Модель</th>
-        <th>Прошивка</th>
-        <th>Серийный номер</th>
-        <th>Партия</th>
-        <th>Статус</th>
-        <th>Банк</th>
-        <th>Брак</th>
-        <th>Дата прихода</th>
-        <th>Действия</th>
-    </tr>
-    {% for t in terminals %}
-    <tr>
-        <td><input type="checkbox" name="terminal_ids" value="{{ t.id }}" class="terminal-checkbox" onchange="updateBulkButton()"></td>
-        <td>{{ loop.index }}</td>
-        <td>{{ t.model }}</td>
-        <td>{{ t.firmware_version }}</td>
-        <td>{{ t.serial_number }}</td>
-        <td>{{ t.box_number }}</td>
-        <td>
-            <span class="status-badge status-{{ t.status }}">
-                {% if t.status == 'warehouse' %}Склад
-                {% elif t.status == 'reserved' %}Забронировано
-                {% elif t.status == 'defective' %}Брак
-                {% elif t.status == 'repair' %}Ремонт
-                {% elif t.status == 'shipped' %}Отгружено
-                {% else %}{{ t.status }}{% endif %}
-            </span>
-        </td>
-        <td>{{ t.bank or '—' }}</td>
-        <td>
-            {% if t.defect_type == 'display' %}Экран
-            {% elif t.defect_type == 'battery' %}Батарея
-            {% elif t.defect_type == 'reader' %}Считыватель
-            {% elif t.defect_type == 'firmware' %}Прошивка
-            {% elif t.defect_type == 'case' %}Корпус
-            {% elif t.defect_type == 'other' %}Иное
-            {% else %}{{ t.defect_type or '—' }}{% endif %}
-        </td>
-        <td>{{ t.arrival_date.strftime('%d.%m.%Y') }}</td>
-        <td>
-            <div style="display: flex; gap: 4px;">
-                <a href="/terminals/{{ t.id }}" class="btn small" style="width: 30px; height: 26px;">📋</a>
-                {% set cu = get_current_user(request) %}
-                {% if cu and cu.role == 'admin' %}
-                <form action="/terminals/{{ t.id }}/delete" method="post" style="display:inline; margin:0; padding:0; background:none; box-shadow:none; max-width:none;" onsubmit="return false;">
-                    <button type="button" class="danger small" style="width: 30px; height: 26px;" onclick="showDeleteModal(this.closest('form'), '{{ t.id }}')">✕</button>
-                </form>
-                {% endif %}
+<!-- Фильтры -->
+<div class="card filter-card">
+    <form action="/terminals" method="get" class="filters-form">
+        <div class="filters-row">
+            <div class="filter-item">
+                <label>Серийный номер</label>
+                <input type="text" name="serial" placeholder="SN..." value="{{ filters.serial or '' }}" autocomplete="off">
             </div>
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+            <div class="filter-item">
+                <label>Модель</label>
+                <input type="text" name="model" placeholder="Модель..." value="{{ filters.model or '' }}" autocomplete="off">
+            </div>
+            <div class="filter-item">
+                <label>Партия</label>
+                <input type="text" name="box" placeholder="Партия..." value="{{ filters.box or '' }}" autocomplete="off">
+            </div>
+            <div class="filter-item">
+                <label>Статус</label>
+                <select name="status">
+                    <option value="">Все</option>
+                    <option value="warehouse" {% if filters.status == 'warehouse' %}selected{% endif %}>Склад</option>
+                    <option value="reserved" {% if filters.status == 'reserved' %}selected{% endif %}>Забронировано</option>
+                    <option value="defective" {% if filters.status == 'defective' %}selected{% endif %}>Брак</option>
+                    <option value="repair" {% if filters.status == 'repair' %}selected{% endif %}>Ремонт</option>
+                    <option value="shipped" {% if filters.status == 'shipped' %}selected{% endif %}>Отгружено</option>
+                </select>
+            </div>
+        </div>
+        <div class="filters-buttons">
+            <button type="submit" class="btn">
+                <i data-lucide="search"></i>
+                <span>Найти</span>
+            </button>
+            <a href="/terminals" class="btn secondary">
+                <i data-lucide="rotate-ccw"></i>
+                <span>Сбросить</span>
+            </a>
+        </div>
+    </form>
+</div>
 
+<!-- Таблица -->
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 40px;">
+                    <input type="checkbox" id="selectAll" onclick="toggleAll(this)">
+                </th>
+                <th>Серийный номер</th>
+                <th>Модель</th>
+                <th>Прошивка</th>
+                <th>Партия</th>
+                <th>Статус</th>
+                <th>Банк</th>
+                <th>Брак</th>
+                <th>Дата прихода</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in terminals %}
+            <tr>
+                <td>
+                    <input type="checkbox" name="terminal_ids" value="{{ t.id }}" class="terminal-checkbox" onchange="updateBulkButton()">
+                </td>
+                <td>
+                    <a href="/terminals/{{ t.id }}" class="link-primary">{{ t.serial_number }}</a>
+                </td>
+                <td>{{ t.model }}</td>
+                <td>{{ t.firmware_version }}</td>
+                <td>{{ t.box_number }}</td>
+                <td>
+                    <span class="status-badge status-{{ t.status }}">
+                        {% if t.status == 'warehouse' %}Склад
+                        {% elif t.status == 'reserved' %}Забронировано
+                        {% elif t.status == 'defective' %}Брак
+                        {% elif t.status == 'repair' %}Ремонт
+                        {% elif t.status == 'shipped' %}Отгружено
+                        {% else %}{{ t.status }}{% endif %}
+                    </span>
+                </td>
+                <td>{{ t.bank or '—' }}</td>
+                <td>
+                    {% if t.defect_type == 'display' %}Экран
+                    {% elif t.defect_type == 'battery' %}Батарея
+                    {% elif t.defect_type == 'reader' %}Считыватель
+                    {% elif t.defect_type == 'firmware' %}Прошивка
+                    {% elif t.defect_type == 'case' %}Корпус
+                    {% elif t.defect_type == 'other' %}Иное
+                    {% else %}—{% endif %}
+                </td>
+                <td>{{ t.arrival_date.strftime('%d.%m.%Y') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not terminals %}
+    <div class="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>Терминалов не найдено</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Пагинация -->
+{% if total_pages > 1 %}
+<div class="pagination">
+    <div class="pagination-info">
+        Всего: <strong>{{ total }}</strong> терминалов
+    </div>
+    <div class="pagination-controls">
+        {% if page > 1 %}
+        <a href="?{% for k, v in filters.items() if v %}{{ k }}={{ v }}&{% endfor %}page={{ page - 1 }}&per_page={{ per_page }}" class="page-btn">
+            <i data-lucide="chevron-left"></i>
+        </a>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                <a href="?{% for k, v in filters.items() if v %}{{ k }}={{ v }}&{% endfor %}page={{ p }}&per_page={{ per_page }}"
+                   class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+            {% elif p == page - 3 or p == page + 3 %}
+                <span class="page-dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?{% for k, v in filters.items() if v %}{{ k }}={{ v }}&{% endfor %}page={{ page + 1 }}&per_page={{ per_page }}" class="page-btn">
+            <i data-lucide="chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    <div class="pagination-per-page">
+        <select onchange="changePerPage(this.value)">
+            <option value="30" {% if per_page == 30 %}selected{% endif %}>30 / стр</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50 / стр</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100 / стр</option>
+            <option value="200" {% if per_page == 200 %}selected{% endif %}>200 / стр</option>
+        </select>
+    </div>
+</div>
+{% endif %}
+
+<!-- Скрытая форма массовой смены -->
 <form id="bulkFormHidden" action="/terminals/bulk-status" method="post" style="display: none;">
     <input type="hidden" name="terminal_ids" id="bulkTerminalIds">
     <input type="hidden" name="new_status" id="bulkStatusHidden">
@@ -91,60 +190,59 @@
     <input type="hidden" name="comment" id="bulkCommentHidden">
 </form>
 
-{% if not terminals %}
-<p>Не найдено</p>
-{% endif %}
-
+<!-- Модалка массовой смены -->
 <div class="modal-overlay" id="bulkModal">
     <div class="modal">
         <h3>Массовая смена статуса</h3>
-        <p id="bulkModalText">Выбрано терминалов: <span id="bulkCount">0</span></p>
-        
-        <div style="text-align: left;">
-            <label>Новый статус:</label>
-            <select id="bulkStatus" required>
-                <option value="">— Выберите статус —</option>
-                <option value="warehouse">Склад</option>
-                <option value="reserved">Забронировано</option>
-                <option value="defective">Брак</option>
-                <option value="repair">В ремонте</option>
-                <option value="shipped">Отгружено</option>
-            </select>
+        <p class="modal-subtitle">Выбрано терминалов: <strong id="bulkCount">0</strong></p>
 
-            <label>Банк (для reserved/shipped):</label>
-            <input type="text" id="bulkBank" placeholder="Оставьте пустым, если не нужно менять">
+        <label>Новый статус:</label>
+        <select id="bulkStatus" required>
+            <option value="">— Выберите статус —</option>
+            <option value="warehouse">Склад</option>
+            <option value="reserved">Забронировано</option>
+            <option value="defective">Брак</option>
+            <option value="repair">В ремонте</option>
+            <option value="shipped">Отгружено</option>
+        </select>
 
-            <div id="bulkDefectBlock" style="display: none;">
-                <label>Тип брака:</label>
-                <select id="bulkDefectType">
-                    <option value="">—</option>
-                    <option value="display">Экран</option>
-                    <option value="battery">Батарея</option>
-                    <option value="reader">Считыватель</option>
-                    <option value="firmware">Прошивка</option>
-                    <option value="case">Корпус</option>
-                    <option value="other">Иное</option>
-                </select>
-
-                <label>Комментарий к браку:</label>
-                <input type="text" id="bulkDefectComment" placeholder="Опишите проблему">
-            </div>
-
-            <label>Примечание:</label>
-            <input type="text" id="bulkComment" placeholder="Причина изменения">
+        <div id="bulkBankBlock" style="display: none;">
+            <label>Банк:</label>
+            <input type="text" id="bulkBank" minlength="2" maxlength="100">
         </div>
 
-        <div class="modal-buttons" style="margin-top: 20px;">
-            <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
-            <button class="success" onclick="submitBulkForm()">Применить</button>
+        <div id="bulkDefectBlock" style="display: none;">
+            <label>Тип брака:</label>
+            <select id="bulkDefectType">
+                <option value="">—</option>
+                <option value="display">Экран</option>
+                <option value="battery">Батарея</option>
+                <option value="reader">Считыватель</option>
+                <option value="firmware">Прошивка</option>
+                <option value="case">Корпус</option>
+                <option value="other">Иное</option>
+            </select>
+
+            <label>Комментарий к браку:</label>
+            <input type="text" id="bulkDefectComment" minlength="5" maxlength="500">
+        </div>
+
+        <label>Примечание:</label>
+        <input type="text" id="bulkComment" maxlength="500">
+
+        <div class="modal-buttons">
+            <button class="btn secondary" onclick="closeBulkModal()">Отмена</button>
+            <button class="btn" onclick="submitBulkForm()">Применить</button>
         </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
     function toggleAll(source) {
-        const checkboxes = document.querySelectorAll('.terminal-checkbox');
-        checkboxes.forEach(cb => cb.checked = source.checked);
+        document.querySelectorAll('.terminal-checkbox').forEach(cb => cb.checked = source.checked);
         updateBulkButton();
     }
 
@@ -152,9 +250,6 @@
         const checked = document.querySelectorAll('.terminal-checkbox:checked');
         const btn = document.getElementById('bulkActionBtn');
         btn.disabled = checked.length === 0;
-        btn.textContent = checked.length > 0 
-            ? 'Массовая смена статуса (' + checked.length + ')' 
-            : 'Массовая смена статуса';
     }
 
     function openBulkModal() {
@@ -170,44 +265,58 @@
 
     function submitBulkForm() {
         const status = document.getElementById('bulkStatus').value;
-        if (!status) {
-            alert('Выберите статус');
-            return;
+        if (!status) { alert('Выберите статус'); return; }
+
+        if (status === 'reserved' || status === 'shipped') {
+            const bank = document.getElementById('bulkBank').value.trim();
+            if (bank.length < 2) { alert('Укажите банк (минимум 2 символа)'); return; }
         }
-        
+
+        if (status === 'defective' || status === 'repair') {
+            const dt = document.getElementById('bulkDefectType').value;
+            const dc = document.getElementById('bulkDefectComment').value.trim();
+            if (!dt) { alert('Укажите тип брака'); return; }
+            if (dc.length < 5) { alert('Комментарий к браку обязателен (минимум 5 символов)'); return; }
+        }
+
         const checked = document.querySelectorAll('.terminal-checkbox:checked');
         const ids = Array.from(checked).map(cb => cb.value).join(',');
-        
+
         document.getElementById('bulkTerminalIds').value = ids;
         document.getElementById('bulkStatusHidden').value = status;
         document.getElementById('bulkBankHidden').value = document.getElementById('bulkBank').value;
         document.getElementById('bulkDefectTypeHidden').value = document.getElementById('bulkDefectType').value;
         document.getElementById('bulkDefectCommentHidden').value = document.getElementById('bulkDefectComment').value;
         document.getElementById('bulkCommentHidden').value = document.getElementById('bulkComment').value;
-        
+
         document.getElementById('bulkFormHidden').submit();
+    }
+
+    function changePerPage(val) {
+        const url = new URL(window.location);
+        url.searchParams.set('per_page', val);
+        url.searchParams.set('page', 1);
+        window.location = url;
     }
 
     document.getElementById('bulkModal').addEventListener('click', function(e) {
         if (e.target === this) closeBulkModal();
     });
 
-    // Показ/скрытие блока брака
+    // Показ/скрытие блоков в модалке
     const bulkStatusSelect = document.getElementById('bulkStatus');
     const bulkDefectBlock = document.getElementById('bulkDefectBlock');
+    const bulkBankBlock = document.getElementById('bulkBankBlock');
 
-    function toggleBulkDefectBlock() {
+    function toggleBulkBlocks() {
         const val = bulkStatusSelect.value;
-        if (val === 'defective' || val === 'repair') {
-            bulkDefectBlock.style.display = 'block';
-        } else {
-            bulkDefectBlock.style.display = 'none';
-        }
+        bulkDefectBlock.style.display = (val === 'defective' || val === 'repair') ? 'block' : 'none';
+        bulkBankBlock.style.display = (val === 'reserved' || val === 'shipped') ? 'block' : 'none';
     }
 
-    bulkStatusSelect.addEventListener('change', toggleBulkDefectBlock);
-    toggleBulkDefectBlock();
+    bulkStatusSelect.addEventListener('change', toggleBulkBlocks);
+    toggleBulkBlocks();
 
-    updateBulkButton();
+    lucide.createIcons();
 </script>
 {% endblock %}

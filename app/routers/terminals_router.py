@@ -4,7 +4,6 @@ MSK = timezone(timedelta(hours=3))
 
 from fastapi import APIRouter, Depends, Request, Form, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 import io
@@ -13,9 +12,10 @@ from openpyxl import Workbook, load_workbook
 from app.database import get_db
 from app.models import Terminal, StatusHistory, User
 from app.auth import SECRET_KEY, ALGORITHM
+from app.schemas import TerminalCreate, TerminalUpdate, StatusChange
+from app.templates import templates
 
 router = APIRouter()
-from app.templates import templates
 
 
 def get_user_from_cookie(request: Request, db: Session):
@@ -30,29 +30,63 @@ def get_user_from_cookie(request: Request, db: Session):
         return None
 
 
+def format_validation_error(e):
+    """Превращает ошибку Pydantic в читаемый текст"""
+    try:
+        errors = e.errors()
+        messages = []
+        for err in errors:
+            field = '.'.join(str(x) for x in err['loc'])
+            msg = err['msg']
+            messages.append(f"{field}: {msg}")
+        return '; '.join(messages)
+    except Exception:
+        return str(e)
+
+
 # ============ СПИСОК ТЕРМИНАЛОВ ============
 @router.get("", response_class=HTMLResponse)
 async def terminals_list(
     request: Request,
     status: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
+    serial: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
+    box: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(30, ge=10, le=200),
     db: Session = Depends(get_db)
 ):
     query = db.query(Terminal)
+
     if status:
         query = query.filter(Terminal.status == status)
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            (Terminal.serial_number.ilike(search_term)) |
-            (Terminal.model.ilike(search_term)) |
-            (Terminal.box_number.ilike(search_term)) |
-            (Terminal.bank.ilike(search_term))
-        )
-    terminals = query.order_by(Terminal.id.asc()).all()
+    if serial:
+        query = query.filter(Terminal.serial_number.ilike(f"%{serial}%"))
+    if model:
+        query = query.filter(Terminal.model.ilike(f"%{model}%"))
+    if box:
+        query = query.filter(Terminal.box_number.ilike(f"%{box}%"))
+
+    total = query.count()
+    total_pages = (total + per_page - 1) // per_page
+    terminals = query.order_by(Terminal.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
     return templates.TemplateResponse(
         "terminals_list.html",
-        {"request": request, "terminals": terminals, "search": search}
+        {
+            "request": request,
+            "terminals": terminals,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "filters": {
+                "status": status,
+                "serial": serial,
+                "model": model,
+                "box": box,
+            }
+        }
     )
 
 
@@ -145,17 +179,32 @@ async def terminal_import(
                     skipped += 1
                     continue
 
-                existing = db.query(Terminal).filter(Terminal.serial_number == serial).first()
+                # Валидация через Pydantic
+                try:
+                    data = TerminalCreate(
+                        model=model or "Не указано",
+                        firmware_version=firmware or "—",
+                        serial_number=serial,
+                        box_number=box or "—",
+                        arrival_date=arrival_str if arrival_str else date.today()
+                    )
+                except Exception as ve:
+                    errors.append(f"Строка {row_idx}: {format_validation_error(ve)}")
+                    skipped += 1
+                    continue
+
+                # Дубликат
+                existing = db.query(Terminal).filter(Terminal.serial_number == data.serial_number).first()
                 if existing:
                     skipped += 1
                     continue
 
                 terminal = Terminal(
-                    model=model or "Не указано",
-                    firmware_version=firmware or "—",
-                    serial_number=serial,
-                    box_number=box or "—",
-                    arrival_date=date.fromisoformat(arrival_str) if arrival_str else date.today(),
+                    model=data.model,
+                    firmware_version=data.firmware_version,
+                    serial_number=data.serial_number,
+                    box_number=data.box_number,
+                    arrival_date=data.arrival_date,
                     status="warehouse"
                 )
                 db.add(terminal)
@@ -196,7 +245,10 @@ async def terminal_import(
 # ============ ДОБАВЛЕНИЕ ============
 @router.get("/add", response_class=HTMLResponse)
 async def terminal_add_form(request: Request):
-    return templates.TemplateResponse("terminal_add.html", {"request": request})
+    return templates.TemplateResponse("terminal_add.html", {
+        "request": request,
+        "today": date.today().strftime('%Y-%m-%d')
+    })
 
 
 @router.post("/add")
@@ -213,19 +265,49 @@ async def terminal_add(
     if not user:
         return RedirectResponse(url="/auth/login", status_code=303)
 
-    existing = db.query(Terminal).filter(Terminal.serial_number == serial_number).first()
-    if existing:
-        return templates.TemplateResponse(
-            "terminal_add.html",
-            {"request": request, "error": f"Терминал с серийным номером {serial_number} уже существует"}
+    today = date.today().strftime('%Y-%m-%d')
+
+    # Валидация
+    try:
+        data = TerminalCreate(
+            model=model.strip(),
+            firmware_version=firmware_version.strip(),
+            serial_number=serial_number.strip(),
+            box_number=box_number.strip(),
+            arrival_date=arrival_date
         )
+    except Exception as e:
+        return templates.TemplateResponse("terminal_add.html", {
+            "request": request,
+            "error": format_validation_error(e),
+            "today": today,
+            "form_data": {
+                "model": model, "firmware_version": firmware_version,
+                "serial_number": serial_number, "box_number": box_number,
+                "arrival_date": arrival_date
+            }
+        })
+
+    # Проверка на дубликат
+    existing = db.query(Terminal).filter(Terminal.serial_number == data.serial_number).first()
+    if existing:
+        return templates.TemplateResponse("terminal_add.html", {
+            "request": request,
+            "error": f"Терминал с серийным номером {data.serial_number} уже существует",
+            "today": today,
+            "form_data": {
+                "model": model, "firmware_version": firmware_version,
+                "serial_number": serial_number, "box_number": box_number,
+                "arrival_date": arrival_date
+            }
+        })
 
     terminal = Terminal(
-        model=model,
-        firmware_version=firmware_version,
-        serial_number=serial_number,
-        box_number=box_number,
-        arrival_date=date.fromisoformat(arrival_date),
+        model=data.model,
+        firmware_version=data.firmware_version,
+        serial_number=data.serial_number,
+        box_number=data.box_number,
+        arrival_date=data.arrival_date,
         status="warehouse"
     )
     db.add(terminal)
@@ -260,6 +342,18 @@ async def bulk_change_status(
     if not user:
         return RedirectResponse(url="/auth/login", status_code=303)
 
+    # Валидация статуса
+    try:
+        StatusChange(
+            new_status=new_status,
+            bank=bank.strip() if bank else None,
+            defect_type=defect_type,
+            defect_comment=defect_comment.strip() if defect_comment else None,
+            comment=comment
+        )
+    except Exception as e:
+        return HTMLResponse(f"Ошибка валидации: {format_validation_error(e)}", status_code=400)
+
     updated = 0
     for tid in terminal_ids.split(','):
         tid = tid.strip()
@@ -273,17 +367,14 @@ async def bulk_change_status(
 
             terminal.status = new_status
 
-            # Банк только для reserved/shipped
-            if new_status in ("reserved", "shipped") and bank:
-                terminal.bank = bank
+            if new_status in ("reserved", "shipped"):
+                terminal.bank = bank.strip() if bank else None
             else:
                 terminal.bank = None
 
-            # Тип брака и комментарий только для defective/repair
             if new_status in ("defective", "repair"):
-                if defect_type:
-                    terminal.defect_type = defect_type
-                terminal.defect_comment = defect_comment
+                terminal.defect_type = defect_type
+                terminal.defect_comment = defect_comment.strip() if defect_comment else None
             else:
                 terminal.defect_type = None
                 terminal.defect_comment = None
@@ -348,22 +439,32 @@ async def terminal_change_status(
     if not terminal:
         return HTMLResponse("Терминал не найден", status_code=404)
 
+    # Валидация
+    try:
+        data = StatusChange(
+            new_status=new_status,
+            bank=bank.strip() if bank else None,
+            defect_type=defect_type,
+            defect_comment=defect_comment.strip() if defect_comment else None,
+            comment=comment
+        )
+    except Exception as e:
+        return HTMLResponse(f"Ошибка: {format_validation_error(e)}", status_code=400)
+
     old_status = terminal.status
     old_bank = terminal.bank
     old_defect_type = terminal.defect_type
 
-    terminal.status = new_status
+    terminal.status = data.new_status
 
-    # Банк только для reserved/shipped
-    if new_status in ("reserved", "shipped"):
-        terminal.bank = bank
+    if data.new_status in ("reserved", "shipped"):
+        terminal.bank = data.bank
     else:
         terminal.bank = None
 
-    # Тип брака и комментарий только для defective/repair
-    if new_status in ("defective", "repair"):
-        terminal.defect_type = defect_type
-        terminal.defect_comment = defect_comment
+    if data.new_status in ("defective", "repair"):
+        terminal.defect_type = data.defect_type
+        terminal.defect_comment = data.defect_comment
     else:
         terminal.defect_type = None
         terminal.defect_comment = None
@@ -371,14 +472,14 @@ async def terminal_change_status(
     history = StatusHistory(
         terminal_id=terminal.id,
         old_status=old_status,
-        new_status=new_status,
+        new_status=data.new_status,
         old_bank=old_bank,
         new_bank=terminal.bank,
         old_defect_type=old_defect_type,
         new_defect_type=terminal.defect_type,
-        defect_comment=defect_comment if new_status in ("defective", "repair") else None,
+        defect_comment=data.defect_comment if data.new_status in ("defective", "repair") else None,
         changed_by=user.id,
-        comment=comment
+        comment=data.comment
     )
     db.add(history)
     db.commit()
@@ -403,7 +504,7 @@ async def terminal_edit_form(
 
     return templates.TemplateResponse(
         "terminal_edit.html",
-        {"request": request, "terminal": terminal}
+        {"request": request, "terminal": terminal, "today": date.today().strftime('%Y-%m-%d')}
     )
 
 
@@ -430,51 +531,72 @@ async def terminal_edit(
     if not terminal:
         return HTMLResponse("Терминал не найден", status_code=404)
 
+    today = date.today().strftime('%Y-%m-%d')
+
+    # Валидация
+    try:
+        data = TerminalUpdate(
+            model=model.strip(),
+            firmware_version=firmware_version.strip(),
+            serial_number=serial_number.strip(),
+            box_number=box_number.strip(),
+            status=status,
+            bank=bank.strip() if bank else None,
+            defect_type=defect_type,
+            defect_comment=defect_comment.strip() if defect_comment else None,
+            arrival_date=arrival_date
+        )
+    except Exception as e:
+        return templates.TemplateResponse("terminal_edit.html", {
+            "request": request,
+            "terminal": terminal,
+            "today": today,
+            "error": format_validation_error(e)
+        })
+
     # Проверка на дубликат серийника
     existing = db.query(Terminal).filter(
-        Terminal.serial_number == serial_number,
+        Terminal.serial_number == data.serial_number,
         Terminal.id != terminal_id
     ).first()
     if existing:
-        return templates.TemplateResponse(
-            "terminal_edit.html",
-            {"request": request, "terminal": terminal,
-             "error": f"Терминал с серийным номером {serial_number} уже существует"}
-        )
+        return templates.TemplateResponse("terminal_edit.html", {
+            "request": request,
+            "terminal": terminal,
+            "today": today,
+            "error": f"Терминал с серийным номером {data.serial_number} уже существует"
+        })
 
     old_status = terminal.status
     old_bank = terminal.bank
     old_defect_type = terminal.defect_type
 
-    # Обновляем все поля
-    terminal.model = model
-    terminal.firmware_version = firmware_version
-    terminal.serial_number = serial_number
-    terminal.box_number = box_number
-    terminal.status = status
-    terminal.bank = bank if status in ("reserved", "shipped") else None
-    terminal.defect_type = defect_type if status in ("defective", "repair") else None
-    terminal.defect_comment = defect_comment if status in ("defective", "repair") else None
-    terminal.arrival_date = date.fromisoformat(arrival_date)
+    terminal.model = data.model
+    terminal.firmware_version = data.firmware_version
+    terminal.serial_number = data.serial_number
+    terminal.box_number = data.box_number
+    terminal.status = data.status
+    terminal.bank = data.bank if data.status in ("reserved", "shipped") else None
+    terminal.defect_type = data.defect_type if data.status in ("defective", "repair") else None
+    terminal.defect_comment = data.defect_comment if data.status in ("defective", "repair") else None
+    terminal.arrival_date = data.arrival_date
 
-    # Пишем в историю, если что-то изменилось
-    if old_status != status or old_bank != terminal.bank or old_defect_type != terminal.defect_type:
+    if old_status != data.status or old_bank != terminal.bank or old_defect_type != terminal.defect_type:
         history = StatusHistory(
             terminal_id=terminal.id,
             old_status=old_status,
-            new_status=status,
+            new_status=data.status,
             old_bank=old_bank,
             new_bank=terminal.bank,
             old_defect_type=old_defect_type,
             new_defect_type=terminal.defect_type,
-            defect_comment=defect_comment if status in ("defective", "repair") else None,
+            defect_comment=data.defect_comment if data.status in ("defective", "repair") else None,
             changed_by=user.id,
             comment="Изменено администратором через редактирование"
         )
         db.add(history)
 
     db.commit()
-
     return RedirectResponse(url=f"/terminals/{terminal_id}", status_code=303)
 
 

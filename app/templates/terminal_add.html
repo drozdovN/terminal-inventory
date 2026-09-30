@@ -8,19 +8,27 @@
 
 <form action="/terminals/add" method="post">
     <label>Модель:</label>
-    <input type="text" name="model" required>
+    <input type="text" name="model" required minlength="2" maxlength="100"
+           value="{{ form_data.model if form_data else '' }}">
 
     <label>Версия прошивки:</label>
-    <input type="text" name="firmware_version" required>
+    <input type="text" name="firmware_version" required minlength="1" maxlength="50"
+           value="{{ form_data.firmware_version if form_data else '' }}">
 
     <label>Серийный номер:</label>
-    <input type="text" name="serial_number" required>
+    <input type="text" name="serial_number" required minlength="3" maxlength="50"
+           pattern="[A-Za-z0-9\-]+"
+           title="Только латиница, цифры и дефис"
+           value="{{ form_data.serial_number if form_data else '' }}">
 
-    <label>Номер коробки:</label>
-    <input type="text" name="box_number" required>
+    <label>Номер партии:</label>
+    <input type="text" name="box_number" required minlength="1" maxlength="50"
+           value="{{ form_data.box_number if form_data else '' }}">
 
     <label>Дата прихода:</label>
-    <input type="date" name="arrival_date" required>
+    <input type="date" name="arrival_date" required
+           min="2020-01-01" max="{{ today }}"
+           value="{{ form_data.arrival_date if form_data else '' }}">
 
     <button type="submit" class="success">Добавить</button>
 </form>

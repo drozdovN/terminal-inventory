@@ -9,15 +9,20 @@
 <h2>Добавить пользователя</h2>
 <form action="/admin/users/add" method="post">
     <label>Логин:</label>
-    <input type="text" name="username" required autocomplete="off">
+    <input type="text" name="username" required minlength="3" maxlength="50"
+           pattern="[A-Za-z0-9_]+"
+           title="Только латиница, цифры и _"
+           autocomplete="off"
+           value="{{ form_data.username if form_data else '' }}">
 
     <label>Пароль:</label>
-    <input type="password" name="password" required autocomplete="new-password">
+    <input type="password" name="password" required minlength="6" maxlength="100"
+           autocomplete="new-password">
 
     <label>Роль:</label>
     <select name="role" required>
-        <option value="warehouse">Склад</option>
-        <option value="admin">Админ</option>
+        <option value="warehouse" {% if form_data and form_data.role == 'warehouse' %}selected{% endif %}>Склад</option>
+        <option value="admin" {% if form_data and form_data.role == 'admin' %}selected{% endif %}>Админ</option>
     </select>
 
     <button type="submit" class="success">Добавить</button>
@@ -40,7 +45,7 @@
         <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
         <td>
             {% if u.id != current_user.id %}
-            <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
+            <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline; margin:0; padding:0; background:none; box-shadow:none;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
                 <button type="submit" class="danger small">✕</button>
             </form>
             {% else %}

@@ -1,29 +1,126 @@
 {% extends "base.html" %}
-{% block content %}
-<h1> Главная</h1>
 
-<div class="dashboard-cards">
-    <div class="card warehouse">
-        <h3>На складе</h3>
-        <div class="number">{{ by_status.get('warehouse', 0) }}</div>
+{% block title %}Дашборд{% endblock %}
+
+{% block breadcrumb %}
+    <span>Dashboard</span>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-2-1">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="package"></i>
+                <span>{{ total }} <span class="muted">всего терминалов</span></span>
+            </div>
+        </div>
+        <div style="height: 200px;">
+            <canvas id="statusChart"></canvas>
+        </div>
     </div>
-    <div class="card reserved">
-        <h3>Забронировано</h3>
-        <div class="number">{{ by_status.get('reserved', 0) }}</div>
-    </div>
-    <div class="card defective">
-        <h3>Брак</h3>
-        <div class="number">{{ by_status.get('defective', 0) }}</div>
-    </div>
-    <div class="card repair">
-        <h3>В ремонте</h3>
-        <div class="number">{{ by_status.get('repair', 0) }}</div>
-    </div>
-    <div class="card shipped">
-        <h3>Отгружено</h3>
-        <div class="number">{{ by_status.get('shipped', 0) }}</div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="alert-circle"></i>
+                <span>Брак: {{ by_status.get('defective', 0) }}</span>
+            </div>
+        </div>
+        <div style="height: 200px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="defectChart"></canvas>
+        </div>
     </div>
 </div>
 
-<p style="font-size: 18px; color: #666;">Всего терминалов: <strong>{{ total }}</strong></p>
+<div class="grid grid-1-1">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="pie-chart"></i>
+                <span>По статусам</span>
+            </div>
+        </div>
+        <div style="height: 250px;">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">
+                <i data-lucide="list"></i>
+                <span>Последние изменения</span>
+            </div>
+        </div>
+        <table>
+            <tr>
+                <th>Дата</th>
+                <th>Терминал</th>
+                <th>Статус</th>
+            </tr>
+            {% for h in recent_history %}
+            <tr>
+                <td>{{ h.changed_at.strftime('%d.%m %H:%M') }}</td>
+                <td>#{{ h.terminal_id }}</td>
+                <td>{{ h.new_status }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // График по статусам
+    new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Склад', 'Забронировано', 'Брак', 'Ремонт', 'Отгружено'],
+            datasets: [{
+                data: [
+                    {{ by_status.get('warehouse', 0) }},
+                    {{ by_status.get('reserved', 0) }},
+                    {{ by_status.get('defective', 0) }},
+                    {{ by_status.get('repair', 0) }},
+                    {{ by_status.get('shipped', 0) }}
+                ],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'],
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Круговая
+    new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Склад', 'Забронировано', 'Брак', 'Ремонт', 'Отгружено'],
+            datasets: [{
+                data: [
+                    {{ by_status.get('warehouse', 0) }},
+                    {{ by_status.get('reserved', 0) }},
+                    {{ by_status.get('defective', 0) }},
+                    {{ by_status.get('repair', 0) }},
+                    {{ by_status.get('shipped', 0) }}
+                ],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'],
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        }
+    });
+</script>
 {% endblock %}

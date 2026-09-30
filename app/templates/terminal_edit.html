@@ -8,19 +8,25 @@
 
 <form action="/terminals/{{ terminal.id }}/edit" method="post">
     <label>Модель:</label>
-    <input type="text" name="model" value="{{ terminal.model }}" required>
+    <input type="text" name="model" required minlength="2" maxlength="100"
+           value="{{ terminal.model }}">
 
     <label>Версия прошивки:</label>
-    <input type="text" name="firmware_version" value="{{ terminal.firmware_version }}" required>
+    <input type="text" name="firmware_version" required minlength="1" maxlength="50"
+           value="{{ terminal.firmware_version }}">
 
     <label>Серийный номер:</label>
-    <input type="text" name="serial_number" value="{{ terminal.serial_number }}" required>
+    <input type="text" name="serial_number" required minlength="3" maxlength="50"
+           pattern="[A-Za-z0-9\-]+"
+           title="Только латиница, цифры и дефис"
+           value="{{ terminal.serial_number }}">
 
-    <label>Номер коробки:</label>
-    <input type="text" name="box_number" value="{{ terminal.box_number }}" required>
+    <label>Номер партии:</label>
+    <input type="text" name="box_number" required minlength="1" maxlength="50"
+           value="{{ terminal.box_number }}">
 
     <label>Статус:</label>
-    <select name="status" required>
+    <select name="status" required id="statusSelect">
         <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
         <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
         <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
@@ -28,45 +34,60 @@
         <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
     </select>
 
-    <label>Банк (для reserved/shipped):</label>
-    <input type="text" name="bank" value="{{ terminal.bank or '' }}">
+    <div id="bankBlock" style="display: none;">
+        <label>Банк:</label>
+        <input type="text" name="bank" minlength="2" maxlength="100"
+               value="{{ terminal.bank or '' }}">
+    </div>
 
     <div id="defectBlock" style="display: none;">
-    <label>Тип брака (для defective):</label>
-    <select name="defect_type">
-        <option value="">—</option>
-        <option value="display" {% if terminal.defect_type == 'display' %}selected{% endif %}>Экран</option>
-        <option value="battery" {% if terminal.defect_type == 'battery' %}selected{% endif %}>Батарея</option>
-        <option value="reader" {% if terminal.defect_type == 'reader' %}selected{% endif %}>Считыватель</option>
-        <option value="firmware" {% if terminal.defect_type == 'firmware' %}selected{% endif %}>Прошивка</option>
-        <option value="case" {% if terminal.defect_type == 'case' %}selected{% endif %}>Корпус</option>
-        <option value="other" {% if terminal.defect_type == 'other' %}selected{% endif %}>Иное</option>
-    </select>
+        <label>Тип брака:</label>
+        <select name="defect_type">
+            <option value="">—</option>
+            <option value="display" {% if terminal.defect_type == 'display' %}selected{% endif %}>Экран</option>
+            <option value="battery" {% if terminal.defect_type == 'battery' %}selected{% endif %}>Батарея</option>
+            <option value="reader" {% if terminal.defect_type == 'reader' %}selected{% endif %}>Считыватель</option>
+            <option value="firmware" {% if terminal.defect_type == 'firmware' %}selected{% endif %}>Прошивка</option>
+            <option value="case" {% if terminal.defect_type == 'case' %}selected{% endif %}>Корпус</option>
+            <option value="other" {% if terminal.defect_type == 'other' %}selected{% endif %}>Иное</option>
+        </select>
 
-    <label>Комментарий к браку:</label>
-    <textarea name="defect_comment" rows="3">{{ terminal.defect_comment or '' }}</textarea>
+        <label>Комментарий к браку:</label>
+        <textarea name="defect_comment" rows="3" minlength="5" maxlength="500">{{ terminal.defect_comment or '' }}</textarea>
     </div>
 
     <label>Дата прихода:</label>
-    <input type="date" name="arrival_date" value="{{ terminal.arrival_date }}" required>
+    <input type="date" name="arrival_date" required
+           min="2020-01-01" max="{{ today }}"
+           value="{{ terminal.arrival_date.strftime('%Y-%m-%d') }}">
 
     <button type="submit">Сохранить</button>
 </form>
 
 <script>
-    const statusSelect = document.querySelector('select[name="status"]');
+    const statusSelect = document.getElementById('statusSelect');
     const defectBlock = document.getElementById('defectBlock');
+    const bankBlock = document.getElementById('bankBlock');
 
-    function toggleDefectBlock() {
+    function toggleBlocks() {
         const val = statusSelect.value;
-        if (val === 'defective' || val === 'repair') {
-            defectBlock.style.display = 'block';
-        } else {
-            defectBlock.style.display = 'none';
-        }
+
+        // Блок брака
+        const showDefect = (val === 'defective' || val === 'repair');
+        defectBlock.style.display = showDefect ? 'block' : 'none';
+        defectBlock.querySelectorAll('select, textarea, input').forEach(el => {
+            el.required = showDefect;
+        });
+
+        // Блок банка
+        const showBank = (val === 'reserved' || val === 'shipped');
+        bankBlock.style.display = showBank ? 'block' : 'none';
+        bankBlock.querySelectorAll('input').forEach(el => {
+            el.required = showBank;
+        });
     }
 
-    statusSelect.addEventListener('change', toggleDefectBlock);
-    toggleDefectBlock();
+    statusSelect.addEventListener('change', toggleBlocks);
+    toggleBlocks();
 </script>
 {% endblock %}
