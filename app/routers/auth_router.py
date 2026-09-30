@@ -9,7 +9,7 @@ from app.models import User
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+from app.templates import templates
 
 
 def create_first_admin(db: Session):

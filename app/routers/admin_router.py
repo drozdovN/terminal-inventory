@@ -9,7 +9,7 @@ from app.auth import hash_password
 from app.routers.terminals_router import get_user_from_cookie
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+from app.templates import templates
 
 
 def check_admin(request: Request, db: Session):

@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import Terminal
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+from app.templates import templates
 
 
 @router.get("", response_class=HTMLResponse)

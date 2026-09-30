@@ -35,11 +35,6 @@ class Terminal(Base):
     defect_type = Column(String, nullable=True)
     defect_comment = Column(Text, nullable=True)
     bank = Column(String, nullable=True)
-    responsible_person = Column(String, nullable=False)
-    last_seen = Column(DateTime, nullable=True)
-    brightness = Column(Integer, nullable=True, default=255)
-    volume = Column(Integer, nullable=True, default=100)
-    bluetooth = Column(Integer, nullable=True, default=0)  # 1 = вкл, 0 = выкл
     created_at = Column(DateTime, default=lambda: datetime.now(MSK))
     updated_at = Column(DateTime, default=lambda: datetime.now(MSK), onupdate=lambda: datetime.now(MSK))
 
@@ -76,13 +71,3 @@ class StatusHistory(Base):
 
     terminal = relationship("Terminal", back_populates="history")
     changed_by_user = relationship("User", back_populates="status_changes")
-
-class ApkFile(Base):
-    __tablename__ = "apk_files"
-
-    id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String, nullable=False)
-    version = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    target_serial = Column(String, nullable=True)  # null = всем, "SN123" = конкретному
-    uploaded_at = Column(DateTime, default=lambda: datetime.now(MSK))

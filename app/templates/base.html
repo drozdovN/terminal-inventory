@@ -15,9 +15,11 @@
                 <a href="/">Главная</a>
                 <a href="/terminals">Терминалы</a>
                 <a href="/boxes">Партии</a>
+                {% set cu = get_current_user(request) %}
+                {% if cu and cu.role == 'admin' %}
                 <a href="/history">История изменений</a>
                 <a href="/admin/users">Пользователи</a>
-                <a href="/terminals/apk/list">APK</a>
+                {% endif %}
             </div>
             <div class="nav-right">
                 <a href="/auth/logout" title="Выход">

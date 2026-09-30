@@ -19,7 +19,7 @@
                 {% else %}{{ terminal.status }}{% endif %}
             </span>
             <!-- Онлайн индикатор -->
-            <span id="onlineIndicator" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: gray; margin-left: 10px; vertical-align: middle;" title="Проверка..."></span>
+    
             <small id="lastSeenText" style="color: #888; margin-left: 5px;"></small>
         </td>
     </tr>
@@ -37,36 +37,9 @@
         </td>
     </tr>
     <tr><td>Комментарий к браку</td><td>{{ terminal.defect_comment or '—' }}</td></tr>
-    <tr><td>Ответственный</td><td>{{ terminal.responsible_person }}</td></tr>
     <tr><td>Дата прихода</td><td>{{ terminal.arrival_date.strftime('%d.%m.%Y') }}</td></tr>
 </table>
 
-<h2>Настройки терминала</h2>
-<form action="/terminals/{{ terminal.id }}/settings" method="post">
-    <label>Яркость: <span id="brightnessValue">{{ terminal.brightness or 255 }}</span></label>
-    <input type="range" name="brightness" min="1" max="255" value="{{ terminal.brightness }}"
-           oninput="document.getElementById('brightnessValue').textContent = this.value" style="margin-bottom: 5px;">
-    
-    <label>Громкость: <span id="volumeValue">{{ terminal.volume or 100 }}</span>%</label>
-    <input type="range" name="volume" min="1" max="100" value="{{ terminal.volume }}"
-           oninput="document.getElementById('volumeValue').textContent = this.value" style="margin-bottom: 15px;">
-    
-    <label>Bluetooth:</label>
-     <select name="bluetooth" style="margin-bottom: 15px;">
-      <option value="0" {% if terminal.bluetooth == 0 %}selected{% endif %}>Выключен</option>
-      <option value="1" {% if terminal.bluetooth == 1 %}selected{% endif %}>Включён</option>
-     </select>
-    
-    <button type="submit" class="btn">Изменить</button>
-</form>
-
-<div class="action-buttons">
-    <a href="/terminals/{{ terminal.id }}/edit" class="btn">Редактировать</a>
-    <form action="/terminals/{{ terminal.id }}/delete" method="post" class="inline-form" onsubmit="return false;">
-        <button type="button" class="danger" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">Удалить</button>
-    </form>
-    <a href="/terminals/{{ terminal.id }}/support" class="btn success">Подключиться</a>
-</div>
 
 <h2>Сменить статус</h2>
 <form action="/terminals/{{ terminal.id }}/status" method="post">
@@ -82,7 +55,8 @@
     <label>Банк (для reserved/shipped):</label>
     <input type="text" name="bank">
 
-    <label>Тип брака (для defective):</label>
+    <div id="defectBlock" style="display: none;">
+    <label>Тип брака:</label>
     <select name="defect_type">
         <option value="">—</option>
         <option value="display">Экран</option>
@@ -95,6 +69,7 @@
 
     <label>Комментарий к браку:</label>
     <textarea name="defect_comment" rows="3"></textarea>
+</div>
 
     <label>Примечание к изменению:</label>
     <input type="text" name="comment">
@@ -138,35 +113,20 @@
 </table>
 
 <script>
-    async function checkOnlineStatus() {
-        try {
-            const response = await fetch('/terminals/check-online?serial_number={{ terminal.serial_number }}');
-            const data = await response.json();
-            
-            const indicator = document.getElementById('onlineIndicator');
-            const lastSeenText = document.getElementById('lastSeenText');
-            
-            if (data.online) {
-                indicator.style.background = '#2ecc71';
-                indicator.title = 'Онлайн';
-                if (data.last_seen) {
-                    lastSeenText.textContent = 'Был в сети: ' + data.last_seen;
-                }
-            } else {
-                indicator.style.background = '#e74c3c';
-                indicator.title = 'Офлайн';
-                if (data.last_seen) {
-                    lastSeenText.textContent = 'Последняя активность: ' + data.last_seen;
-                } else {
-                    lastSeenText.textContent = 'Никогда не был в сети';
-                }
-            }
-        } catch (e) {
-            console.error('Ошибка проверки статуса', e);
+    const statusSelect = document.querySelector('select[name="new_status"]');
+    const defectBlock = document.getElementById('defectBlock');
+
+    function toggleDefectBlock() {
+        const val = statusSelect.value;
+        if (val === 'defective' || val === 'repair') {
+            defectBlock.style.display = 'block';
+        } else {
+            defectBlock.style.display = 'none';
         }
     }
 
-    checkOnlineStatus();
-    setInterval(checkOnlineStatus, 30000);
+    statusSelect.addEventListener('change', toggleDefectBlock);
+    toggleDefectBlock(); // при загрузке
 </script>
+
 {% endblock %}

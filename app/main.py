@@ -7,11 +7,24 @@ from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
 from app.routers import auth_router, terminals_router, boxes_router, history_router, admin_router
 from app.models import Terminal
+from app.middleware import CurrentUserMiddleware
+from app.templates import templates
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Terminal Inventory")
-templates = Jinja2Templates(directory="app/templates")
+app.add_middleware(CurrentUserMiddleware)
+
+from app.templates import templates
+
+
+def render(request, template_name, context=None):
+    """Хелпер для рендера с автоматической подстановкой current_user"""
+    ctx = context or {}
+    ctx["request"] = request
+    ctx["current_user"] = getattr(request.state, "current_user", None)
+    return templates.TemplateResponse(template_name, ctx)
+
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -27,7 +40,12 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     total = db.query(Terminal).count()
     statuses = db.query(Terminal.status, func.count(Terminal.id)).group_by(Terminal.status).all()
     by_status = {s: c for s, c in statuses}
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "total": total, "by_status": by_status}
-    )
+    return render(request, "dashboard.html", {
+        "total": total,
+        "by_status": by_status
+    })
+
+@app.middleware("http")
+async def add_current_user_to_templates(request: Request, call_next):
+    response = await call_next(request)
+    return response

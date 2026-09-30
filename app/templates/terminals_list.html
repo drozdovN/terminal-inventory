@@ -23,6 +23,7 @@
     <a href="/terminals/export" class="btn">Экспорт в Excel</a>
     <button type="button" class="btn" onclick="openBulkModal()" id="bulkActionBtn" disabled>Массовая смена статуса</button>
 </div>
+
 <table>
     <tr>
         <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
@@ -34,7 +35,6 @@
         <th>Статус</th>
         <th>Банк</th>
         <th>Брак</th>
-        <th>Ответственный</th>
         <th>Дата прихода</th>
         <th>Действия</th>
     </tr>
@@ -66,30 +66,35 @@
             {% elif t.defect_type == 'other' %}Иное
             {% else %}{{ t.defect_type or '—' }}{% endif %}
         </td>
-        <td>{{ t.responsible_person }}</td>
         <td>{{ t.arrival_date.strftime('%d.%m.%Y') }}</td>
         <td>
-    <div style="display: flex; gap: 4px;">
-        <a href="/terminals/{{ t.id }}" class="btn small" style="width: 30px; height: 26px;">📋</a>
-        <form action="/terminals/{{ t.id }}/delete" method="post" style="display:inline; margin:0; padding:0; background:none; box-shadow:none; max-width:none;" onsubmit="return false;">
-    <button type="button" class="danger small" style="width: 30px; height: 26px;" onclick="showDeleteModal(this.closest('form'), '{{ t.id }}')">✕</button>
-</form>
-    </div>
-</td>
+            <div style="display: flex; gap: 4px;">
+                <a href="/terminals/{{ t.id }}" class="btn small" style="width: 30px; height: 26px;">📋</a>
+                {% set cu = get_current_user(request) %}
+                {% if cu and cu.role == 'admin' %}
+                <form action="/terminals/{{ t.id }}/delete" method="post" style="display:inline; margin:0; padding:0; background:none; box-shadow:none; max-width:none;" onsubmit="return false;">
+                    <button type="button" class="danger small" style="width: 30px; height: 26px;" onclick="showDeleteModal(this.closest('form'), '{{ t.id }}')">✕</button>
+                </form>
+                {% endif %}
+            </div>
+        </td>
     </tr>
     {% endfor %}
 </table>
+
 <form id="bulkFormHidden" action="/terminals/bulk-status" method="post" style="display: none;">
     <input type="hidden" name="terminal_ids" id="bulkTerminalIds">
     <input type="hidden" name="new_status" id="bulkStatusHidden">
     <input type="hidden" name="bank" id="bulkBankHidden">
     <input type="hidden" name="defect_type" id="bulkDefectTypeHidden">
+    <input type="hidden" name="defect_comment" id="bulkDefectCommentHidden">
     <input type="hidden" name="comment" id="bulkCommentHidden">
 </form>
 
 {% if not terminals %}
 <p>Не найдено</p>
 {% endif %}
+
 <div class="modal-overlay" id="bulkModal">
     <div class="modal">
         <h3>Массовая смена статуса</h3>
@@ -109,16 +114,21 @@
             <label>Банк (для reserved/shipped):</label>
             <input type="text" id="bulkBank" placeholder="Оставьте пустым, если не нужно менять">
 
-            <label>Тип брака (для defective):</label>
-            <select id="bulkDefectType">
-                <option value="">—</option>
-                <option value="display">Экран</option>
-                <option value="battery">Батарея</option>
-                <option value="reader">Считыватель</option>
-                <option value="firmware">Прошивка</option>
-                <option value="case">Корпус</option>
-                <option value="other">Иное</option>
-            </select>
+            <div id="bulkDefectBlock" style="display: none;">
+                <label>Тип брака:</label>
+                <select id="bulkDefectType">
+                    <option value="">—</option>
+                    <option value="display">Экран</option>
+                    <option value="battery">Батарея</option>
+                    <option value="reader">Считыватель</option>
+                    <option value="firmware">Прошивка</option>
+                    <option value="case">Корпус</option>
+                    <option value="other">Иное</option>
+                </select>
+
+                <label>Комментарий к браку:</label>
+                <input type="text" id="bulkDefectComment" placeholder="Опишите проблему">
+            </div>
 
             <label>Примечание:</label>
             <input type="text" id="bulkComment" placeholder="Причина изменения">
@@ -130,6 +140,7 @@
         </div>
     </div>
 </div>
+
 <script>
     function toggleAll(source) {
         const checkboxes = document.querySelectorAll('.terminal-checkbox');
@@ -164,7 +175,6 @@
             return;
         }
         
-        // Собираем ID выбранных терминалов
         const checked = document.querySelectorAll('.terminal-checkbox:checked');
         const ids = Array.from(checked).map(cb => cb.value).join(',');
         
@@ -172,6 +182,7 @@
         document.getElementById('bulkStatusHidden').value = status;
         document.getElementById('bulkBankHidden').value = document.getElementById('bulkBank').value;
         document.getElementById('bulkDefectTypeHidden').value = document.getElementById('bulkDefectType').value;
+        document.getElementById('bulkDefectCommentHidden').value = document.getElementById('bulkDefectComment').value;
         document.getElementById('bulkCommentHidden').value = document.getElementById('bulkComment').value;
         
         document.getElementById('bulkFormHidden').submit();
@@ -180,6 +191,22 @@
     document.getElementById('bulkModal').addEventListener('click', function(e) {
         if (e.target === this) closeBulkModal();
     });
+
+    // Показ/скрытие блока брака
+    const bulkStatusSelect = document.getElementById('bulkStatus');
+    const bulkDefectBlock = document.getElementById('bulkDefectBlock');
+
+    function toggleBulkDefectBlock() {
+        const val = bulkStatusSelect.value;
+        if (val === 'defective' || val === 'repair') {
+            bulkDefectBlock.style.display = 'block';
+        } else {
+            bulkDefectBlock.style.display = 'none';
+        }
+    }
+
+    bulkStatusSelect.addEventListener('change', toggleBulkDefectBlock);
+    toggleBulkDefectBlock();
 
     updateBulkButton();
 </script>

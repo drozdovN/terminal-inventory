@@ -31,6 +31,7 @@
     <label>Банк (для reserved/shipped):</label>
     <input type="text" name="bank" value="{{ terminal.bank or '' }}">
 
+    <div id="defectBlock" style="display: none;">
     <label>Тип брака (для defective):</label>
     <select name="defect_type">
         <option value="">—</option>
@@ -44,13 +45,28 @@
 
     <label>Комментарий к браку:</label>
     <textarea name="defect_comment" rows="3">{{ terminal.defect_comment or '' }}</textarea>
-
-    <label>Ответственный:</label>
-    <input type="text" name="responsible_person" value="{{ terminal.responsible_person }}" required>
+    </div>
 
     <label>Дата прихода:</label>
     <input type="date" name="arrival_date" value="{{ terminal.arrival_date }}" required>
 
     <button type="submit">Сохранить</button>
 </form>
+
+<script>
+    const statusSelect = document.querySelector('select[name="status"]');
+    const defectBlock = document.getElementById('defectBlock');
+
+    function toggleDefectBlock() {
+        const val = statusSelect.value;
+        if (val === 'defective' || val === 'repair') {
+            defectBlock.style.display = 'block';
+        } else {
+            defectBlock.style.display = 'none';
+        }
+    }
+
+    statusSelect.addEventListener('change', toggleDefectBlock);
+    toggleDefectBlock();
+</script>
 {% endblock %}
