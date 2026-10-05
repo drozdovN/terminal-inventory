@@ -1,5 +1,7 @@
 from typing import Optional
 from datetime import date, datetime, timezone, timedelta
+from urllib.parse import quote
+
 MSK = timezone(timedelta(hours=3))
 
 from fastapi import APIRouter, Depends, Request, Form, Query, UploadFile, File
@@ -7,6 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 import io
+import os
 from openpyxl import Workbook, load_workbook
 
 from app.database import get_db
@@ -52,6 +55,7 @@ async def terminals_list(
     serial: Optional[str] = Query(None),
     model: Optional[str] = Query(None),
     box: Optional[str] = Query(None),
+    bank: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=10, le=200),
     db: Session = Depends(get_db)
@@ -66,10 +70,18 @@ async def terminals_list(
         query = query.filter(Terminal.model.ilike(f"%{model}%"))
     if box:
         query = query.filter(Terminal.box_number.ilike(f"%{box}%"))
+    if bank:
+        query = query.filter(Terminal.bank == bank)
 
     total = query.count()
     total_pages = (total + per_page - 1) // per_page
     terminals = query.order_by(Terminal.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+    banks_query = db.query(Terminal.bank).filter(
+        Terminal.bank.isnot(None),
+        Terminal.bank != ''
+    ).distinct().order_by(Terminal.bank).all()
+    banks = [b[0] for b in banks_query]
 
     return templates.TemplateResponse(
         "terminals_list.html",
@@ -80,11 +92,13 @@ async def terminals_list(
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
+            "banks": banks,
             "filters": {
                 "status": status,
                 "serial": serial,
                 "model": model,
                 "box": box,
+                "bank": bank,
             }
         }
     )
@@ -145,9 +159,9 @@ async def terminal_import(
         return RedirectResponse(url="/auth/login", status_code=303)
 
     if not file.filename.endswith('.xlsx'):
-        return templates.TemplateResponse(
-            "terminal_import.html",
-            {"request": request, "error": "Неверный формат файла. Ожидается .xlsx"}
+        return RedirectResponse(
+            url=f"/terminals/import?error={quote('Неверный формат файла. Ожидается .xlsx')}",
+            status_code=303
         )
 
     try:
@@ -179,7 +193,6 @@ async def terminal_import(
                     skipped += 1
                     continue
 
-                # Валидация через Pydantic
                 try:
                     data = TerminalCreate(
                         model=model or "Не указано",
@@ -193,7 +206,6 @@ async def terminal_import(
                     skipped += 1
                     continue
 
-                # Дубликат
                 existing = db.query(Terminal).filter(Terminal.serial_number == data.serial_number).first()
                 if existing:
                     skipped += 1
@@ -236,9 +248,9 @@ async def terminal_import(
         )
 
     except Exception as e:
-        return templates.TemplateResponse(
-            "terminal_import.html",
-            {"request": request, "error": f"Ошибка чтения файла: {str(e)}"}
+        return RedirectResponse(
+            url=f"/terminals/import?error={quote(f'Ошибка чтения файла: {str(e)}')}",
+            status_code=303
         )
 
 
@@ -265,8 +277,6 @@ async def terminal_add(
     if not user:
         return RedirectResponse(url="/auth/login", status_code=303)
 
-    today = date.today().strftime('%Y-%m-%d')
-
     # Валидация
     try:
         data = TerminalCreate(
@@ -277,30 +287,18 @@ async def terminal_add(
             arrival_date=arrival_date
         )
     except Exception as e:
-        return templates.TemplateResponse("terminal_add.html", {
-            "request": request,
-            "error": format_validation_error(e),
-            "today": today,
-            "form_data": {
-                "model": model, "firmware_version": firmware_version,
-                "serial_number": serial_number, "box_number": box_number,
-                "arrival_date": arrival_date
-            }
-        })
+        return RedirectResponse(
+            url=f"/terminals/add?error={quote(format_validation_error(e))}",
+            status_code=303
+        )
 
     # Проверка на дубликат
     existing = db.query(Terminal).filter(Terminal.serial_number == data.serial_number).first()
     if existing:
-        return templates.TemplateResponse("terminal_add.html", {
-            "request": request,
-            "error": f"Терминал с серийным номером {data.serial_number} уже существует",
-            "today": today,
-            "form_data": {
-                "model": model, "firmware_version": firmware_version,
-                "serial_number": serial_number, "box_number": box_number,
-                "arrival_date": arrival_date
-            }
-        })
+        return RedirectResponse(
+            url=f"/terminals/add?error={quote(f'Терминал с серийным номером {data.serial_number} уже существует')}",
+            status_code=303
+        )
 
     terminal = Terminal(
         model=data.model,
@@ -323,7 +321,7 @@ async def terminal_add(
     db.add(history)
     db.commit()
 
-    return RedirectResponse(url="/terminals", status_code=303)
+    return RedirectResponse(url=f"/terminals?success={quote('Терминал добавлен')}", status_code=303)
 
 
 # ============ МАССОВАЯ СМЕНА СТАТУСА ============
@@ -352,7 +350,10 @@ async def bulk_change_status(
             comment=comment
         )
     except Exception as e:
-        return HTMLResponse(f"Ошибка валидации: {format_validation_error(e)}", status_code=400)
+        return RedirectResponse(
+            url=f"/terminals?error={quote(format_validation_error(e))}",
+            status_code=303
+        )
 
     updated = 0
     for tid in terminal_ids.split(','):
@@ -395,12 +396,46 @@ async def bulk_change_status(
             updated += 1
 
     db.commit()
-    return RedirectResponse(url="/terminals", status_code=303)
+    return RedirectResponse(
+        url=f"/terminals?success={quote(f'Массовая смена статуса выполнена ({updated} шт.)')}",
+        status_code=303
+    )
 
 
 # ============ КАРТОЧКА ТЕРМИНАЛА ============
 @router.get("/{terminal_id}", response_class=HTMLResponse)
 async def terminal_card(
+    terminal_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()
+    if not terminal:
+        return HTMLResponse("Терминал не найден", status_code=404)
+
+    # Ищем фото по имени модели
+    model_slug = terminal.model.lower().replace(' ', '').replace('-', '')
+    model_image = None
+    for ext in ('png', 'jpg', 'jpeg', 'webp'):
+        candidate = f"app/static/models/{model_slug}.{ext}"
+        if os.path.exists(candidate):
+            model_image = f"/static/models/{model_slug}.{ext}"
+            break
+
+    return templates.TemplateResponse(
+        "terminal_card.html",
+        {
+            "request": request,
+            "terminal": terminal,
+            "active_tab": "info",
+            "model_image": model_image
+        }
+    )
+
+
+# ============ ИСТОРИЯ ТЕРМИНАЛА ============
+@router.get("/{terminal_id}/history", response_class=HTMLResponse)
+async def terminal_history(
     terminal_id: int,
     request: Request,
     db: Session = Depends(get_db)
@@ -415,7 +450,7 @@ async def terminal_card(
 
     return templates.TemplateResponse(
         "terminal_card.html",
-        {"request": request, "terminal": terminal, "history": history}
+        {"request": request, "terminal": terminal, "history": history, "active_tab": "history"}
     )
 
 
@@ -449,7 +484,10 @@ async def terminal_change_status(
             comment=comment
         )
     except Exception as e:
-        return HTMLResponse(f"Ошибка: {format_validation_error(e)}", status_code=400)
+        return RedirectResponse(
+            url=f"/terminals/{terminal_id}?error={quote(format_validation_error(e))}",
+            status_code=303
+        )
 
     old_status = terminal.status
     old_bank = terminal.bank
@@ -484,7 +522,10 @@ async def terminal_change_status(
     db.add(history)
     db.commit()
 
-    return RedirectResponse(url=f"/terminals/{terminal_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/terminals/{terminal_id}?success={quote('Статус обновлён')}",
+        status_code=303
+    )
 
 
 # ============ РЕДАКТИРОВАНИЕ (только админ) ============
@@ -531,8 +572,6 @@ async def terminal_edit(
     if not terminal:
         return HTMLResponse("Терминал не найден", status_code=404)
 
-    today = date.today().strftime('%Y-%m-%d')
-
     # Валидация
     try:
         data = TerminalUpdate(
@@ -547,12 +586,10 @@ async def terminal_edit(
             arrival_date=arrival_date
         )
     except Exception as e:
-        return templates.TemplateResponse("terminal_edit.html", {
-            "request": request,
-            "terminal": terminal,
-            "today": today,
-            "error": format_validation_error(e)
-        })
+        return RedirectResponse(
+            url=f"/terminals/{terminal_id}/edit?error={quote(format_validation_error(e))}",
+            status_code=303
+        )
 
     # Проверка на дубликат серийника
     existing = db.query(Terminal).filter(
@@ -560,12 +597,10 @@ async def terminal_edit(
         Terminal.id != terminal_id
     ).first()
     if existing:
-        return templates.TemplateResponse("terminal_edit.html", {
-            "request": request,
-            "terminal": terminal,
-            "today": today,
-            "error": f"Терминал с серийным номером {data.serial_number} уже существует"
-        })
+        return RedirectResponse(
+            url=f"/terminals/{terminal_id}/edit?error={quote(f'Терминал с серийным номером {data.serial_number} уже существует')}",
+            status_code=303
+        )
 
     old_status = terminal.status
     old_bank = terminal.bank
@@ -597,7 +632,10 @@ async def terminal_edit(
         db.add(history)
 
     db.commit()
-    return RedirectResponse(url=f"/terminals/{terminal_id}", status_code=303)
+    return RedirectResponse(
+        url=f"/terminals/{terminal_id}?success={quote('Изменения сохранены')}",
+        status_code=303
+    )
 
 
 # ============ УДАЛЕНИЕ (только админ) ============
@@ -619,4 +657,7 @@ async def terminal_delete(
     db.delete(terminal)
     db.commit()
 
-    return RedirectResponse(url="/terminals", status_code=303)
+    return RedirectResponse(
+        url=f"/terminals?success={quote('Терминал удалён')}",
+        status_code=303
+    )

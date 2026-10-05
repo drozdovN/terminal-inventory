@@ -3,52 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход</title>
-    <link rel="stylesheet" href="/static/style.css?v=5">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #f0f2f5;
-            margin: 0;
-        }
-        .login-container {
-            background: #fff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-        }
-        .login-container h1 {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .login-container form {
-            box-shadow: none;
-            padding: 0;
-        }
-    </style>
+    <title>Вход — ATMOSPHERE CRM</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css?v=99">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+    </script>
 </head>
-<body>
-    <div class="login-container">
-        <h1>Склад</h1>
-        
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
-        
-        <form action="/auth/login" method="post" autocomplete="off">
-            <label>Логин:</label>
-            <input type="text" name="username" required autocomplete="off">
-            
-            <label>Пароль:</label>
-            <input type="password" name="password" required autocomplete="new-password">
-            
-            <button type="submit" style="width: 100%;">Войти</button>
-        </form>
+<body class="login-body">
+
+    <!-- Переключатель темы -->
+    <button class="login-theme-toggle" onclick="toggleTheme()" title="Переключить тему">
+        <i data-lucide="sun" class="theme-icon-light"></i>
+        <i data-lucide="moon" class="theme-icon-dark"></i>
+    </button>
+
+    <!-- Toast-контейнер -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+
+            <!-- Лого -->
+            <div class="login-logo">
+                <div class="login-logo-icon">
+                    <i data-lucide="package"></i>
+                </div>
+                <div class="login-logo-text">
+                    <span class="logo-dark">ATMOSPHERE</span>
+                    <span class="logo-accent">IMS</span>
+                </div>
+            </div>
+
+            <!-- Подзаголовок -->
+            <p class="login-subtitle">Учёт терминалов на складе</p>
+
+            <!-- Форма -->
+            <form action="/auth/login" method="post" autocomplete="off" class="login-form">
+                <div class="login-field">
+                    <input type="text" name="username" required autocomplete="off"
+                           placeholder="Логин">
+                </div>
+
+                <div class="login-field login-password-field">
+                    <input type="password" name="password" required autocomplete="new-password"
+                           placeholder="Пароль" id="passwordInput">
+                    <button type="button" class="password-toggle" onclick="togglePassword()" tabindex="-1">
+                        <i data-lucide="eye" id="eyeIcon"></i>
+                    </button>
+                </div>
+
+                <button type="submit" class="login-btn">Войти</button>
+            </form>
+
+        </div>
     </div>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('passwordInput');
+            const icon = document.getElementById('eyeIcon');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        // Toast-уведомления
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const icons = {
+                success: 'check-circle',
+                error: 'x-circle',
+                warning: 'alert-triangle',
+                info: 'info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i data-lucide="${icons[type] || 'info'}"></i>
+                </div>
+                <div class="toast-message">${message}</div>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <i data-lucide="x"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.add('toast-show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('toast-show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Показываем ошибку из query-параметра ?error=...
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            if (error) {
+                showToast(decodeURIComponent(error), 'error');
+                params.delete('error');
+                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState({}, '', newUrl);
+            }
+        })();
+    </script>
+
 </body>
 </html>

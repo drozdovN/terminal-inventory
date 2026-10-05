@@ -1,35 +1,74 @@
 {% extends "base.html" %}
+
+{% block title %}Добавить терминал{% endblock %}
+
+{% block breadcrumb %}
+    <a href="/terminals">Терминалы</a>
+    <span>Добавить</span>
+{% endblock %}
+
 {% block content %}
-<h1>Добавить терминал</h1>
+
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="plus-circle"></i>
+        <span>Добавить терминал</span>
+    </div>
+</div>
 
 {% if error %}
 <div class="error">{{ error }}</div>
 {% endif %}
 
-<form action="/terminals/add" method="post">
-    <label>Модель:</label>
-    <input type="text" name="model" required minlength="2" maxlength="100"
-           value="{{ form_data.model if form_data else '' }}">
+<!-- Форма в карточке -->
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="smartphone"></i>
+        </div>
+        <h2>Новый терминал</h2>
+    </div>
 
-    <label>Версия прошивки:</label>
-    <input type="text" name="firmware_version" required minlength="1" maxlength="50"
-           value="{{ form_data.firmware_version if form_data else '' }}">
+    <form action="/terminals/add" method="post" autocomplete="off">
+        <label>Модель:</label>
+        <input type="text" name="model" required minlength="2" maxlength="100"
+               value="{{ form_data.model if form_data else '' }}"
+               placeholder="Например, Newland 9100">
 
-    <label>Серийный номер:</label>
-    <input type="text" name="serial_number" required minlength="3" maxlength="50"
-           pattern="[A-Za-z0-9\-]+"
-           title="Только латиница, цифры и дефис"
-           value="{{ form_data.serial_number if form_data else '' }}">
+        <label>Версия прошивки:</label>
+        <input type="text" name="firmware_version" required minlength="1" maxlength="50"
+               value="{{ form_data.firmware_version if form_data else '' }}"
+               placeholder="Например, 2.1.4">
 
-    <label>Номер партии:</label>
-    <input type="text" name="box_number" required minlength="1" maxlength="50"
-           value="{{ form_data.box_number if form_data else '' }}">
+        <label>Серийный номер:</label>
+        <input type="text" name="serial_number" required minlength="3" maxlength="50"
+               pattern="[A-Za-z0-9\-]+"
+               title="Только латиница, цифры и дефис"
+               value="{{ form_data.serial_number if form_data else '' }}"
+               placeholder="Например, SN123456789">
 
-    <label>Дата прихода:</label>
-    <input type="date" name="arrival_date" required
-           min="2020-01-01" max="{{ today }}"
-           value="{{ form_data.arrival_date if form_data else '' }}">
+        <label>Номер партии:</label>
+        <input type="text" name="box_number" required minlength="1" maxlength="50"
+               value="{{ form_data.box_number if form_data else '' }}"
+               placeholder="Например, BOX-001">
 
-    <button type="submit" class="success">Добавить</button>
-</form>
+        <label>Дата прихода:</label>
+        <input type="date" name="arrival_date" required
+               min="2020-01-01" max="{{ today }}"
+               value="{{ form_data.arrival_date if form_data else '' }}">
+
+        <button type="submit" class="btn">
+            <i data-lucide="plus"></i>
+            <span>Добавить</span>
+        </button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
 {% endblock %}

@@ -3,7 +3,7 @@
 {% block title %}Дашборд{% endblock %}
 
 {% block breadcrumb %}
-    <span>Dashboard</span>
+    <span>Главная</span>
 {% endblock %}
 
 {% block content %}
@@ -19,17 +19,36 @@
             <canvas id="statusChart"></canvas>
         </div>
     </div>
-    
+
     <div class="card">
         <div class="card-header">
             <div class="card-title">
-                <i data-lucide="alert-circle"></i>
-                <span>Брак: {{ by_status.get('defective', 0) }}</span>
+                <i data-lucide="building-2"></i>
+                <span>По банкам</span>
             </div>
         </div>
-        <div style="height: 200px; display: flex; align-items: center; justify-content: center;">
-            <canvas id="defectChart"></canvas>
+
+                {% if by_bank %}
+        {% set total_banks = by_bank|sum(attribute='count') %}
+        <div class="bank-list">
+            {% set max_count = by_bank[0].count %}
+            {% for b in by_bank %}
+            <div class="bank-row">
+                <div class="bank-name" title="{{ b.bank }}">{{ b.bank }}</div>
+                <div class="bank-bar-wrapper">
+                    <div class="bank-bar" style="width: {{ (b.count / max_count * 100)|round }}%"></div>
+                </div>
+                <div class="bank-count">{{ b.count }}</div>
+                <div class="bank-percent">{{ ((b.count / total_banks) * 100)|round(1) }}%</div>
+            </div>
+            {% endfor %}
         </div>
+        {% else %}
+        <div class="empty-state" style="padding: 40px 0;">
+            <i data-lucide="inbox"></i>
+            <p>Пока нет забронированных или отгруженных терминалов</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -45,7 +64,7 @@
             <canvas id="pieChart"></canvas>
         </div>
     </div>
-    
+
     <div class="card">
         <div class="card-header">
             <div class="card-title">
@@ -53,19 +72,32 @@
                 <span>Последние изменения</span>
             </div>
         </div>
-        <table>
-            <tr>
-                <th>Дата</th>
-                <th>Терминал</th>
-                <th>Статус</th>
-            </tr>
-            {% for h in recent_history %}
-            <tr>
-                <td>{{ h.changed_at.strftime('%d.%m %H:%M') }}</td>
-                <td>#{{ h.terminal_id }}</td>
-                <td>{{ h.new_status }}</td>
-            </tr>
-            {% endfor %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Терминал</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in recent_history %}
+                <tr>
+                    <td>{{ h.changed_at.strftime('%d.%m %H:%M') }}</td>
+                    <td>#{{ h.terminal_id }}</td>
+                    <td>
+                        <span class="status-badge status-{{ h.new_status }}">
+                            {% if h.new_status == 'warehouse' %}Склад
+                            {% elif h.new_status == 'reserved' %}Забронировано
+                            {% elif h.new_status == 'defective' %}Брак
+                            {% elif h.new_status == 'repair' %}Ремонт
+                            {% elif h.new_status == 'shipped' %}Отгружено
+                            {% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 </div>
@@ -95,13 +127,13 @@
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } },
                 x: { grid: { display: false } }
             }
         }
     });
 
-    // Круговая
+    // Круговая по статусам
     new Chart(document.getElementById('pieChart'), {
         type: 'doughnut',
         data: {
@@ -120,7 +152,25 @@
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 12, font: { size: 12 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed + ' терминалов';
+                        }
+                    }
+                }
+            },
+            cutout: '60%',
         }
     });
+
+    
+
+    lucide.createIcons();
 </script>
 {% endblock %}

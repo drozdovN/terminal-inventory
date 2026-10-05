@@ -1,58 +1,124 @@
 {% extends "base.html" %}
+
+{% block title %}Пользователи{% endblock %}
+
+{% block breadcrumb %}
+    <span>Пользователи</span>
+{% endblock %}
+
 {% block content %}
-<h1>Управление пользователями</h1>
+
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="users"></i>
+        <span>Пользователи</span>
+    </div>
+</div>
 
 {% if error %}
 <div class="error">{{ error }}</div>
 {% endif %}
 
-<h2>Добавить пользователя</h2>
-<form action="/admin/users/add" method="post">
-    <label>Логин:</label>
-    <input type="text" name="username" required minlength="3" maxlength="50"
-           pattern="[A-Za-z0-9_]+"
-           title="Только латиница, цифры и _"
-           autocomplete="off"
-           value="{{ form_data.username if form_data else '' }}">
+<!-- Форма добавления -->
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="user-plus"></i>
+        </div>
+        <h2>Добавить пользователя</h2>
+    </div>
 
-    <label>Пароль:</label>
-    <input type="password" name="password" required minlength="6" maxlength="100"
-           autocomplete="new-password">
+    <form action="/admin/users/add" method="post" autocomplete="off">
+        <label>Логин:</label>
+        <input type="text" name="username" required minlength="3" maxlength="50"
+               pattern="[A-Za-z0-9_]+"
+               title="Только латиница, цифры и _"
+               autocomplete="off"
+               value="{{ form_data.username if form_data else '' }}">
 
-    <label>Роль:</label>
-    <select name="role" required>
-        <option value="warehouse" {% if form_data and form_data.role == 'warehouse' %}selected{% endif %}>Склад</option>
-        <option value="admin" {% if form_data and form_data.role == 'admin' %}selected{% endif %}>Админ</option>
-    </select>
+        <label>Пароль:</label>
+        <input type="password" name="password" required minlength="6" maxlength="100"
+               autocomplete="new-password">
 
-    <button type="submit" class="success">Добавить</button>
-</form>
+        <label>Роль:</label>
+        <select name="role" required>
+            <option value="warehouse" {% if form_data and form_data.role == 'warehouse' %}selected{% endif %}>Склад</option>
+            <option value="admin" {% if form_data and form_data.role == 'admin' %}selected{% endif %}>Админ</option>
+        </select>
 
-<h2>Список пользователей</h2>
-<table>
-    <tr>
-        <th>ID</th>
-        <th>Логин</th>
-        <th>Роль</th>
-        <th>Создан</th>
-        <th>Действия</th>
-    </tr>
-    {% for u in users %}
-    <tr>
-        <td>{{ u.id }}</td>
-        <td>{{ u.username }}{% if u.id == current_user.id %} (вы){% endif %}</td>
-        <td>{{ u.role }}</td>
-        <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
-        <td>
-            {% if u.id != current_user.id %}
-            <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline; margin:0; padding:0; background:none; box-shadow:none;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
-                <button type="submit" class="danger small">✕</button>
-            </form>
-            {% else %}
-            —
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-</table>
+        <button type="submit" class="btn">
+            <i data-lucide="plus"></i>
+            <span>Добавить</span>
+        </button>
+    </form>
+</div>
+
+<!-- Список пользователей -->
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="list"></i>
+        </div>
+        <h2>Список пользователей</h2>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 60px;">ID</th>
+                <th>Логин</th>
+                <th>Роль</th>
+                <th>Создан</th>
+                <th style="text-align: right; width: 100px;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td>{{ u.id }}</td>
+                <td>
+                    {{ u.username }}
+                    {% if u.id == current_user.id %}
+                    <span class="text-muted">(вы)</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.role == 'admin' %}
+                    <span class="role-badge role-admin">Администратор</span>
+                    {% else %}
+                    <span class="role-badge role-warehouse">Склад</span>
+                    {% endif %}
+                </td>
+                <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                <td style="text-align: right;">
+                    {% if u.id != current_user.id %}
+                    <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline; margin:0; padding:0;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
+                        <button type="submit" class="btn danger small" title="Удалить">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not users %}
+    <div class="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>Пользователей не найдено</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
 {% endblock %}

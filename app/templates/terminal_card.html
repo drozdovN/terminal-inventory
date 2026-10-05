@@ -1,149 +1,285 @@
 {% extends "base.html" %}
+
+{% block title %}{{ terminal.serial_number }}{% endblock %}
+
+{% block breadcrumb %}
+    <a href="/terminals">Терминалы</a>
+    <span>{{ terminal.serial_number }}</span>
+{% endblock %}
+
 {% block content %}
-<h1>Терминал #{{ terminal.id }}</h1>
 
-<table>
-    <tr><td>Модель</td><td>{{ terminal.model }}</td></tr>
-    <tr><td>Прошивка</td><td>{{ terminal.firmware_version }}</td></tr>
-    <tr><td>Серийный номер</td><td>{{ terminal.serial_number }}</td></tr>
-    <tr><td>Номер партии</td><td>{{ terminal.box_number }}</td></tr>
-    <tr>
-        <td>Статус</td>
-        <td>
-            <span class="status-badge status-{{ terminal.status }}">
-                {% if terminal.status == 'warehouse' %}Склад
-                {% elif terminal.status == 'reserved' %}Забронировано
-                {% elif terminal.status == 'defective' %}Брак
-                {% elif terminal.status == 'repair' %}Ремонт
-                {% elif terminal.status == 'shipped' %}Отгружено
-                {% else %}{{ terminal.status }}{% endif %}
-            </span>
-        </td>
-    </tr>
-    <tr><td>Банк</td><td>{{ terminal.bank or '—' }}</td></tr>
-    <tr>
-        <td>Тип брака</td>
-        <td>
-            {% if terminal.defect_type == 'display' %}Экран
-            {% elif terminal.defect_type == 'battery' %}Батарея
-            {% elif terminal.defect_type == 'reader' %}Считыватель
-            {% elif terminal.defect_type == 'firmware' %}Прошивка
-            {% elif terminal.defect_type == 'case' %}Корпус
-            {% elif terminal.defect_type == 'other' %}Иное
-            {% else %}{{ terminal.defect_type or '—' }}{% endif %}
-        </td>
-    </tr>
-    <tr><td>Комментарий к браку</td><td>{{ terminal.defect_comment or '—' }}</td></tr>
-    <tr><td>Дата прихода</td><td>{{ terminal.arrival_date.strftime('%d.%m.%Y') }}</td></tr>
-</table>
-
-{% set cu = get_current_user(request) %}
-{% if cu and cu.role == 'admin' %}
-<div class="action-buttons">
-    <a href="/terminals/{{ terminal.id }}/edit" class="btn">Редактировать</a>
-    <form action="/terminals/{{ terminal.id }}/delete" method="post" class="inline-form" onsubmit="return false;">
-        <button type="button" class="danger" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">Удалить</button>
-    </form>
+<!-- Табы -->
+<div class="tabs">
+    <a href="/terminals/{{ terminal.id }}" class="tab {% if active_tab == 'info' %}active{% endif %}">
+        <i data-lucide="smartphone"></i>
+        <span>Терминал</span>
+    </a>
+    <a href="/terminals/{{ terminal.id }}/history" class="tab {% if active_tab == 'history' %}active{% endif %}">
+        <i data-lucide="history"></i>
+        <span>История</span>
+    </a>
 </div>
-{% endif %}
 
-<h2>Сменить статус</h2>
-<form action="/terminals/{{ terminal.id }}/status" method="post">
-    <label>Новый статус:</label>
-    <select name="new_status" required id="statusSelect">
-        <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
-        <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
-        <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
-        <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
-        <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
-    </select>
+{% if active_tab == 'info' %}
+<!-- ============ ВКЛАДКА "ТЕРМИНАЛ" ============ -->
 
-    <div id="bankBlock" style="display: none;">
-        <label>Банк:</label>
-        <input type="text" name="bank" minlength="2" maxlength="100">
+<div class="card card-with-actions">
+    <!-- Кнопки в правом верхнем углу -->
+    {% set cu = get_current_user(request) %}
+    {% if cu and cu.role == 'admin' %}
+    <div class="card-top-actions">
+        <a href="/terminals/{{ terminal.id }}/edit" class="btn secondary small">
+            <i data-lucide="edit-3"></i>
+            <span>Редактировать</span>
+        </a>
+        <form action="/terminals/{{ terminal.id }}/delete" method="post"
+              style="display:inline;" onsubmit="return false;">
+            <button type="button" class="btn danger small" onclick="showDeleteModal(this.closest('form'), '{{ terminal.id }}')">
+                <i data-lucide="trash-2"></i>
+                <span>Удалить</span>
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="smartphone"></i>
+        </div>
+        <h2>Информация о терминале</h2>
     </div>
 
-    <div id="defectBlock" style="display: none;">
-        <label>Тип брака:</label>
-        <select name="defect_type">
-            <option value="">—</option>
-            <option value="display">Экран</option>
-            <option value="battery">Батарея</option>
-            <option value="reader">Считыватель</option>
-            <option value="firmware">Прошивка</option>
-            <option value="case">Корпус</option>
-            <option value="other">Иное</option>
+    <div class="info-grid">
+        <!-- ЛЕВАЯ КОЛОНКА — Основное -->
+        <div class="info-column">
+            <h3 class="info-column-title">Основное</h3>
+
+            <div class="info-row">
+                <span class="info-label">Модель:</span>
+                <span class="info-value">{{ terminal.model }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Серийный номер:</span>
+                <span class="info-value mono">{{ terminal.serial_number }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Версия прошивки:</span>
+                <span class="info-value">{{ terminal.firmware_version }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Партия:</span>
+                <span class="info-value">{{ terminal.box_number }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Дата прихода:</span>
+                <span class="info-value">{{ terminal.arrival_date.strftime('%d.%m.%Y') }}</span>
+            </div>
+        </div>
+
+        <!-- ЦЕНТР — Статус -->
+        <div class="info-column">
+            <h3 class="info-column-title">Статус</h3>
+
+            <div class="info-row">
+                <span class="info-label">Текущий статус:</span>
+                <span class="info-value">
+                    <span class="status-badge status-{{ terminal.status }}">
+                        {% if terminal.status == 'warehouse' %}Склад
+                        {% elif terminal.status == 'reserved' %}Забронировано
+                        {% elif terminal.status == 'defective' %}Брак
+                        {% elif terminal.status == 'repair' %}Ремонт
+                        {% elif terminal.status == 'shipped' %}Отгружено
+                        {% else %}{{ terminal.status }}{% endif %}
+                    </span>
+                </span>
+            </div>
+
+            {% if terminal.bank %}
+            <div class="info-row">
+                <span class="info-label">Банк:</span>
+                <span class="info-value">{{ terminal.bank }}</span>
+            </div>
+            {% endif %}
+
+            <div class="info-row">
+                <span class="info-label">Обновлён:</span>
+                <span class="info-value">{{ terminal.updated_at.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ — Заглушка фото + брак -->
+        <div class="info-column">
+            <div class="photo-placeholder">
+                {% if model_image %}
+                <img src="{{ model_image }}" alt="{{ terminal.model }}">
+                {% else %}
+                <i data-lucide="image"></i>
+                {% endif %}
+            </div>
+
+            {% if terminal.defect_type %}
+            <h3 class="info-column-title" style="margin-top: 16px;">Брак</h3>
+            <div class="info-row">
+                <span class="info-label">Тип:</span>
+                <span class="info-value">
+                    {% if terminal.defect_type == 'display' %}Экран
+                    {% elif terminal.defect_type == 'battery' %}Батарея
+                    {% elif terminal.defect_type == 'reader' %}Считыватель
+                    {% elif terminal.defect_type == 'firmware' %}Прошивка
+                    {% elif terminal.defect_type == 'case' %}Корпус
+                    {% elif terminal.defect_type == 'other' %}Иное
+                    {% endif %}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Комментарий:</span>
+                <span class="info-value">{{ terminal.defect_comment or '—' }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ============ СМЕНА СТАТУСА ============ -->
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="refresh-cw"></i>
+        </div>
+        <h2>Сменить статус</h2>
+    </div>
+
+    <form action="/terminals/{{ terminal.id }}/status" method="post" style="max-width: 600px;" autocomplete="off">
+        <label>Новый статус:</label>
+        <select name="new_status" required id="statusSelect">
+            <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
+            <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
+            <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
+            <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
+            <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
         </select>
 
-        <label>Комментарий к браку:</label>
-        <textarea name="defect_comment" rows="3" minlength="5" maxlength="500"></textarea>
+        <div id="bankBlock" style="display: none;">
+            <label>Банк:</label>
+            <input type="text" name="bank" minlength="2" maxlength="100">
+        </div>
+
+        <div id="defectBlock" style="display: none;">
+            <label>Тип брака:</label>
+            <select name="defect_type">
+                <option value="">—</option>
+                <option value="display">Экран</option>
+                <option value="battery">Батарея</option>
+                <option value="reader">Считыватель</option>
+                <option value="firmware">Прошивка</option>
+                <option value="case">Корпус</option>
+                <option value="other">Иное</option>
+            </select>
+
+            <label>Комментарий к браку:</label>
+            <textarea name="defect_comment" rows="3" minlength="5" maxlength="500"></textarea>
+        </div>
+
+        <label>Примечание к изменению:</label>
+        <input type="text" name="comment" maxlength="500">
+
+        <button type="submit" class="btn">
+            <i data-lucide="check"></i>
+            <span>Обновить статус</span>
+        </button>
+    </form>
+</div>
+
+{% else %}
+<!-- ============ ВКЛАДКА "ИСТОРИЯ" ============ -->
+
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="history"></i>
+        </div>
+        <h2>История изменений</h2>
     </div>
 
-    <label>Примечание к изменению:</label>
-    <input type="text" name="comment" maxlength="500">
+    {% if history %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Старый статус</th>
+                <th>Новый статус</th>
+                <th>Кто изменил</th>
+                <th>Примечание</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td>{{ h.changed_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                <td>
+                    {% if h.old_status %}
+                    <span class="status-badge status-{{ h.old_status }}">
+                        {% if h.old_status == 'warehouse' %}Склад
+                        {% elif h.old_status == 'reserved' %}Забронировано
+                        {% elif h.old_status == 'defective' %}Брак
+                        {% elif h.old_status == 'repair' %}Ремонт
+                        {% elif h.old_status == 'shipped' %}Отгружено
+                        {% endif %}
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <span class="status-badge status-{{ h.new_status }}">
+                        {% if h.new_status == 'warehouse' %}Склад
+                        {% elif h.new_status == 'reserved' %}Забронировано
+                        {% elif h.new_status == 'defective' %}Брак
+                        {% elif h.new_status == 'repair' %}Ремонт
+                        {% elif h.new_status == 'shipped' %}Отгружено
+                        {% endif %}
+                    </span>
+                </td>
+                <td>{{ h.changed_by_user.username }}</td>
+                <td>{{ h.comment or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>История пуста</p>
+    </div>
+    {% endif %}
+</div>
 
-    <button type="submit">Обновить статус</button>
-</form>
+{% endif %}
 
-<h2>История изменений</h2>
-<table>
-    <tr>
-        <th>Дата</th>
-        <th>Старый статус</th>
-        <th>Новый статус</th>
-        <th>Кто изменил</th>
-        <th>Примечание</th>
-    </tr>
-    {% for h in history %}
-    <tr>
-        <td>{{ h.changed_at.strftime('%d.%m.%Y %H:%M') }}</td>
-        <td>
-            {% if h.old_status == 'warehouse' %}Склад
-            {% elif h.old_status == 'reserved' %}Забронировано
-            {% elif h.old_status == 'defective' %}Брак
-            {% elif h.old_status == 'repair' %}Ремонт
-            {% elif h.old_status == 'shipped' %}Отгружено
-            {% elif h.old_status is none %}—
-            {% else %}{{ h.old_status }}{% endif %}
-        </td>
-        <td>
-            {% if h.new_status == 'warehouse' %}Склад
-            {% elif h.new_status == 'reserved' %}Забронировано
-            {% elif h.new_status == 'defective' %}Брак
-            {% elif h.new_status == 'repair' %}Ремонт
-            {% elif h.new_status == 'shipped' %}Отгружено
-            {% else %}{{ h.new_status }}{% endif %}
-        </td>
-        <td>{{ h.changed_by_user.username }}</td>
-        <td>{{ h.comment or '—' }}</td>
-    </tr>
-    {% endfor %}
-</table>
+{% endblock %}
 
+{% block scripts %}
 <script>
     const statusSelect = document.getElementById('statusSelect');
-    const defectBlock = document.getElementById('defectBlock');
-    const bankBlock = document.getElementById('bankBlock');
+    if (statusSelect) {
+        const defectBlock = document.getElementById('defectBlock');
+        const bankBlock = document.getElementById('bankBlock');
 
-    function toggleBlocks() {
-        const val = statusSelect.value;
+        function toggleBlocks() {
+            const val = statusSelect.value;
 
-        // Блок брака
-        const showDefect = (val === 'defective' || val === 'repair');
-        defectBlock.style.display = showDefect ? 'block' : 'none';
-        defectBlock.querySelectorAll('select, textarea, input').forEach(el => {
-            el.required = showDefect;
-        });
+            const showDefect = (val === 'defective' || val === 'repair');
+            defectBlock.style.display = showDefect ? 'block' : 'none';
+            defectBlock.querySelectorAll('select, textarea').forEach(el => el.required = showDefect);
 
-        // Блок банка
-        const showBank = (val === 'reserved' || val === 'shipped');
-        bankBlock.style.display = showBank ? 'block' : 'none';
-        bankBlock.querySelectorAll('input').forEach(el => {
-            el.required = showBank;
-        });
+            const showBank = (val === 'reserved' || val === 'shipped');
+            bankBlock.style.display = showBank ? 'block' : 'none';
+            bankBlock.querySelectorAll('input').forEach(el => el.required = showBank);
+        }
+
+        statusSelect.addEventListener('change', toggleBlocks);
+        toggleBlocks();
     }
 
-    statusSelect.addEventListener('change', toggleBlocks);
-    toggleBlocks();
+    lucide.createIcons();
 </script>
 {% endblock %}

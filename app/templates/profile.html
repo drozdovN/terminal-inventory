@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block breadcrumb %}
+    <span>Личный кабинет</span>
+{% endblock %}
+
+{% block content %}
+
+<!-- Левая карточка — аккаунт -->
+<div class="profile-grid">
+
+    <div class="card profile-card">
+        <div class="profile-avatar-wrapper">
+            <div class="profile-avatar">{{ user.username[0]|upper }}</div>
+        </div>
+
+        <div class="profile-info">
+            <div class="profile-info-row">
+                <div class="profile-info-label">
+                    <i data-lucide="user"></i>
+                    <span>Логин</span>
+                </div>
+                <div class="profile-info-value">{{ user.username }}</div>
+            </div>
+
+            <div class="profile-info-row">
+                <div class="profile-info-label">
+                    <i data-lucide="shield"></i>
+                    <span>Роль</span>
+                </div>
+                <div class="profile-info-value">
+                    {% if user.role == 'admin' %}Администратор{% else %}Склад{% endif %}
+                </div>
+            </div>
+
+            <div class="profile-info-row">
+                <div class="profile-info-label">
+                    <i data-lucide="calendar"></i>
+                    <span>Дата регистрации</span>
+                </div>
+                <div class="profile-info-value">{{ user.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+            </div>
+        </div>
+
+        <div class="profile-role-badge">
+            {% if user.role == 'admin' %}
+            <span class="role-badge role-admin">Администратор</span>
+            {% else %}
+            <span class="role-badge role-warehouse">Склад</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Правая карточка — редактирование -->
+    <div class="card">
+        <div class="tabs">
+            <a href="/profile?tab=basic" class="tab {% if active_tab == 'basic' %}active{% endif %}">
+                <i data-lucide="user-cog"></i>
+                <span>Основное</span>
+            </a>
+            <a href="/profile?tab=password" class="tab {% if active_tab == 'password' %}active{% endif %}">
+                <i data-lucide="lock"></i>
+                <span>Сменить пароль</span>
+            </a>
+        </div>
+
+    
+
+        {% if active_tab == 'basic' %}
+        <form action="/profile/basic" method="post" style="max-width: 100%;" autocomplete="off">
+            <label>Логин:</label>
+            <input type="text" name="username" required minlength="3" maxlength="50"
+                   pattern="[A-Za-z0-9_]+"
+                   title="Только латиница, цифры и _"
+                   value="{{ user.username }}"
+                   {% if user.role != 'admin' %}disabled{% endif %}>
+
+            {% if user.role != 'admin' %}
+            <p class="form-hint">Только администратор может менять логин.</p>
+            {% endif %}
+
+            {% if user.role == 'admin' %}
+            <button type="submit" class="btn">
+                <i data-lucide="save"></i>
+                <span>Сохранить</span>
+            </button>
+            {% endif %}
+        </form>
+
+        {% elif active_tab == 'password' %}
+        <form action="/profile/password" method="post" style="max-width: 100%;" autocomplete="off">
+            <label>Текущий пароль:</label>
+            <input type="password" name="old_password" required autocomplete="current-password">
+
+            <label>Новый пароль:</label>
+            <input type="password" name="new_password" required minlength="6" maxlength="100" autocomplete="new-password">
+
+            <label>Подтверждение пароля:</label>
+            <input type="password" name="confirm_password" required minlength="6" maxlength="100" autocomplete="new-password">
+
+            <button type="submit" class="btn">
+                <i data-lucide="save"></i>
+                <span>Сохранить</span>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
+{% endblock %}

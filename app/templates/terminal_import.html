@@ -1,6 +1,21 @@
 {% extends "base.html" %}
+
+{% block title %}Импорт из Excel{% endblock %}
+
+{% block breadcrumb %}
+    <a href="/terminals">Терминалы</a>
+    <span>Импорт</span>
+{% endblock %}
+
 {% block content %}
-<h1>Импорт из Excel</h1>
+
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="download"></i>
+        <span>Импорт из Excel</span>
+    </div>
+</div>
 
 {% if error %}
 <div class="error">{{ error }}</div>
@@ -10,37 +25,158 @@
 <div class="success">{{ success }}</div>
 {% endif %}
 
-<div style="background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <h2>Пример</h2>
-    <p>Файл должен быть в формате <strong>.Excel (.xlsx)</strong></p>
-    <table>
-        <tr>
-            <th>Колонка</th>
-            <th>Название</th>
-            <th>Пример</th>
-        </tr>
-        <tr><td>A</td><td>Модель</td><td>T6</td></tr>
-        <tr><td>B</td><td>Версия прошивки</td><td>Z6532AA_ATMO_S6_TSEC_V2.0.6_user</td></tr>
-        <tr><td>C</td><td>Серийный номер</td><td>P651900014644</td></tr>
-        <tr><td>D</td><td>Номер коробки</td><td>BOX-001</td></tr>
-        <tr><td>E</td><td>Дата прихода</td><td>01-05-2026</td></tr>
-    </table>
+<!-- Карточка с загрузкой -->
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="file-spreadsheet"></i>
+        </div>
+        <h2>Загрузка файла</h2>
+    </div>
+
+    <form action="/terminals/import" method="post" enctype="multipart/form-data" id="importForm">
+        <div class="drop-zone" id="dropZone">
+            <input type="file" name="file" accept=".xlsx" required id="fileInput" hidden>
+
+            <div class="drop-zone-content" id="dropZoneContent">
+                <div class="drop-zone-icon">
+                    <i data-lucide="upload-cloud"></i>
+                </div>
+                <p class="drop-zone-title">Перетащите файл сюда</p>
+                <p class="drop-zone-subtitle">или</p>
+                <button type="button" class="btn secondary" onclick="document.getElementById('fileInput').click()">
+                    <i data-lucide="folder-open"></i>
+                    <span>Выбрать файл</span>
+                </button>
+                <p class="drop-zone-hint">Поддерживается формат .xlsx</p>
+            </div>
+
+            <div class="drop-zone-file" id="dropZoneFile" style="display: none;">
+                <div class="drop-zone-file-icon">
+                    <i data-lucide="file-check"></i>
+                </div>
+                <div class="drop-zone-file-info">
+                    <p class="drop-zone-file-name" id="fileName"></p>
+                    <p class="drop-zone-file-size" id="fileSize"></p>
+                </div>
+                <button type="button" class="drop-zone-remove" onclick="clearFile()" title="Убрать файл">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="form-actions" id="submitActions" style="display: none;">
+            <button type="submit" class="btn">
+                <i data-lucide="upload"></i>
+                <span>Импортировать</span>
+            </button>
+        </div>
+    </form>
 </div>
 
-<form action="/terminals/import" method="post" enctype="multipart/form-data" style="margin-top: 20px;">
-    <label>Выберите файл Excel (.xlsx):</label>
-    <input type="file" name="file" accept=".xlsx,.xls" required>
-    <button type="submit" class="success">Импортировать</button>
-</form>
-
+<!-- Ошибки импорта -->
 {% if errors %}
-<div style="margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12;">
-    <h3>⚠️ Ошибки при импорте:</h3>
-    <ul>
+<div class="card" style="margin-top: 16px;">
+    <div class="card-header-block">
+        <div class="card-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+            <i data-lucide="alert-triangle"></i>
+        </div>
+        <h2>Ошибки при импорте</h2>
+    </div>
+
+    <ul class="import-errors">
         {% for e in errors %}
-        <li style="color: #e67e22;">{{ e }}</li>
+        <li>{{ e }}</li>
         {% endfor %}
     </ul>
 </div>
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const dropZoneContent = document.getElementById('dropZoneContent');
+    const dropZoneFile = document.getElementById('dropZoneFile');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const submitActions = document.getElementById('submitActions');
+
+    // Клик по зоне (если файл не выбран)
+    dropZone.addEventListener('click', (e) => {
+        if (e.target.closest('.drop-zone-remove')) return;
+        if (dropZoneFile.style.display === 'none') {
+            fileInput.click();
+        }
+    });
+
+    // При выборе файла
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            showFile(fileInput.files[0]);
+        }
+    });
+
+    // Drag&drop
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (!file.name.endsWith('.xlsx')) {
+                alert('Поддерживается только формат .xlsx');
+                return;
+            }
+            // Копируем файл в input
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            showFile(file);
+        }
+    });
+
+    function showFile(file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+
+        dropZoneContent.style.display = 'none';
+        dropZoneFile.style.display = 'flex';
+        submitActions.style.display = 'flex';
+
+        lucide.createIcons();
+    }
+
+    function clearFile() {
+        fileInput.value = '';
+        dropZoneContent.style.display = 'block';
+        dropZoneFile.style.display = 'none';
+        submitActions.style.display = 'none';
+        lucide.createIcons();
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' Б';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+        return (bytes / 1024 / 1024).toFixed(1) + ' МБ';
+    }
+
+    lucide.createIcons();
+</script>
 {% endblock %}

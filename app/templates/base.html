@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CRM склада{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="stylesheet" href="/static/style.css?v=10">
+    <link rel="stylesheet" href="/static/style.css?v=99">
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
@@ -21,7 +21,10 @@
                 <div class="logo-icon">
                     <i data-lucide="package"></i>
                 </div>
-                <span class="logo-text">TOPTMS</span>
+                <div class="logo-text">
+                    <span class="logo-dark">ATMOSPHERE</span>
+                    <span class="logo-accent">IMS</span>
+                </div>
             </div>
 
             <nav class="sidebar-nav">
@@ -29,16 +32,16 @@
                 
                 <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
                     <i data-lucide="home"></i>
-                    <span>Home</span>
+                    <span>Главная</span>
                 </a>
                 
                 <a href="/terminals" class="nav-item {% if request.url.path.startswith('/terminals') %}active{% endif %}">
-                    <i data-lucide="hard-drive"></i>
+                    <i data-lucide="smartphone"></i>
                     <span>Терминалы</span>
                 </a>
                 
                 <a href="/boxes" class="nav-item {% if request.url.path.startswith('/boxes') %}active{% endif %}">
-                    <i data-lucide="package"></i>
+                    <i data-lucide="boxes"></i>
                     <span>Партии</span>
                 </a>
 
@@ -72,23 +75,23 @@
                         <i data-lucide="menu"></i>
                     </button>
                     <div class="breadcrumbs">
-                        <a href="/">Home</a>
+                        <a href="/">Главная</a>
                         {% block breadcrumb %}{% endblock %}
                     </div>
                 </div>
                 
                 <div class="topbar-right">
-                    <button class="icon-btn"><i data-lucide="mail"></i></button>
-                    <button class="icon-btn"><i data-lucide="sun-moon"></i></button>
-                    <button class="icon-btn"><i data-lucide="grid-3x3"></i></button>
-                    <button class="icon-btn"><i data-lucide="history"></i></button>
+                    <button class="icon-btn" onclick="toggleTheme()" title="Переключить тему">
+                        <i data-lucide="sun" class="theme-icon-light"></i>
+                        <i data-lucide="moon" class="theme-icon-dark"></i>
+                    </button>
                     
                     {% set cu = get_current_user(request) %}
                     {% if cu %}
-                    <div class="user-badge">
+                    <a href="/profile" class="user-badge">
                         <div class="user-avatar">{{ cu.username[0]|upper }}</div>
                         <span class="user-name">{{ cu.username }}</span>
-                    </div>
+                    </a>
                     {% endif %}
                 </div>
             </header>
@@ -100,8 +103,22 @@
         </div>
     </div>
 
+    <!-- Модалка удаления -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3>Удаление терминала</h3>
+            <p class="modal-subtitle">Вы уверены, что хотите удалить этот терминал?</p>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+                <button class="btn danger" id="confirmDeleteBtn">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast-уведомления -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
-        // Инициализация иконок Lucide
         lucide.createIcons();
 
         // Сворачивание сайдбара
@@ -109,6 +126,106 @@
             document.querySelector('.sidebar').classList.toggle('collapsed');
             document.querySelector('.layout').classList.toggle('sidebar-collapsed');
         }
+
+        // Переключение темы
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+
+        // Применяем сохранённую тему при загрузке
+        (function() {
+            const saved = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+
+        // Модалка удаления
+        let deleteForm = null;
+
+        function showDeleteModal(form, terminalId) {
+            deleteForm = form;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('deleteModal').classList.remove('show');
+            deleteForm = null;
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (deleteForm) {
+                deleteForm.submit();
+            }
+        });
+
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Toast-уведомления
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const icons = {
+                success: 'check-circle',
+                error: 'x-circle',
+                warning: 'alert-triangle',
+                info: 'info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i data-lucide="${icons[type] || 'info'}"></i>
+                </div>
+                <div class="toast-message">${message}</div>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <i data-lucide="x"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.add('toast-show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('toast-show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Показываем тосты из query-параметров ?success=... ?error=...
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            
+            const success = params.get('success');
+            const error = params.get('error');
+            
+            if (success) {
+                showToast(decodeURIComponent(success), 'success');
+                params.delete('success');
+                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState({}, '', newUrl);
+            }
+            
+            if (error) {
+                showToast(decodeURIComponent(error), 'error');
+                params.delete('error');
+                const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+                window.history.replaceState({}, '', newUrl);
+            }
+        })();
+
+        lucide.createIcons();
     </script>
 
     {% block scripts %}{% endblock %}

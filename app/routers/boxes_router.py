@@ -1,16 +1,14 @@
 from typing import Optional
-
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Terminal
+from app.templates import templates
 
 router = APIRouter()
-from app.templates import templates
 
 
 @router.get("", response_class=HTMLResponse)
@@ -19,6 +17,7 @@ async def boxes_list(
     box: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    # Список всех партий с подсчётами
     boxes_query = db.query(
         Terminal.box_number,
         func.count(Terminal.id).label("total"),
@@ -28,14 +27,22 @@ async def boxes_list(
         func.sum(func.iif(Terminal.status == "repair", 1, 0)).label("repair"),
         func.sum(func.iif(Terminal.status == "shipped", 1, 0)).label("shipped"),
     ).group_by(Terminal.box_number).order_by(Terminal.box_number)
-    
+
     boxes = boxes_query.all()
-    
+
+    # Если выбрана конкретная партия — показываем терминалы внутри
     terminals = []
     if box:
-        terminals = db.query(Terminal).filter(Terminal.box_number == box).order_by(Terminal.id).all()
-    
+        terminals = db.query(Terminal).filter(
+            Terminal.box_number == box
+        ).order_by(Terminal.id).all()
+
     return templates.TemplateResponse(
         "boxes_list.html",
-        {"request": request, "boxes": boxes, "terminals": terminals, "selected_box": box}
+        {
+            "request": request,
+            "boxes": boxes,
+            "terminals": terminals,
+            "selected_box": box
+        }
     )

@@ -1,69 +1,109 @@
 {% extends "base.html" %}
+
+{% block title %}Редактировать терминал{% endblock %}
+
+{% block breadcrumb %}
+    <a href="/terminals">Терминалы</a>
+    <a href="/terminals/{{ terminal.id }}">{{ terminal.serial_number }}</a>
+    <span>Редактировать</span>
+{% endblock %}
+
 {% block content %}
-<h1>Редактировать терминал #{{ terminal.id }}</h1>
+
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="edit-3"></i>
+        <span>Редактировать терминал</span>
+    </div>
+</div>
 
 {% if error %}
 <div class="error">{{ error }}</div>
 {% endif %}
 
-<form action="/terminals/{{ terminal.id }}/edit" method="post">
-    <label>Модель:</label>
-    <input type="text" name="model" required minlength="2" maxlength="100"
-           value="{{ terminal.model }}">
-
-    <label>Версия прошивки:</label>
-    <input type="text" name="firmware_version" required minlength="1" maxlength="50"
-           value="{{ terminal.firmware_version }}">
-
-    <label>Серийный номер:</label>
-    <input type="text" name="serial_number" required minlength="3" maxlength="50"
-           pattern="[A-Za-z0-9\-]+"
-           title="Только латиница, цифры и дефис"
-           value="{{ terminal.serial_number }}">
-
-    <label>Номер партии:</label>
-    <input type="text" name="box_number" required minlength="1" maxlength="50"
-           value="{{ terminal.box_number }}">
-
-    <label>Статус:</label>
-    <select name="status" required id="statusSelect">
-        <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
-        <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
-        <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
-        <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
-        <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
-    </select>
-
-    <div id="bankBlock" style="display: none;">
-        <label>Банк:</label>
-        <input type="text" name="bank" minlength="2" maxlength="100"
-               value="{{ terminal.bank or '' }}">
+<!-- Форма в карточке -->
+<div class="card">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="smartphone"></i>
+        </div>
+        <h2>Терминал #{{ terminal.id }}</h2>
     </div>
 
-    <div id="defectBlock" style="display: none;">
-        <label>Тип брака:</label>
-        <select name="defect_type">
-            <option value="">—</option>
-            <option value="display" {% if terminal.defect_type == 'display' %}selected{% endif %}>Экран</option>
-            <option value="battery" {% if terminal.defect_type == 'battery' %}selected{% endif %}>Батарея</option>
-            <option value="reader" {% if terminal.defect_type == 'reader' %}selected{% endif %}>Считыватель</option>
-            <option value="firmware" {% if terminal.defect_type == 'firmware' %}selected{% endif %}>Прошивка</option>
-            <option value="case" {% if terminal.defect_type == 'case' %}selected{% endif %}>Корпус</option>
-            <option value="other" {% if terminal.defect_type == 'other' %}selected{% endif %}>Иное</option>
+    <form action="/terminals/{{ terminal.id }}/edit" method="post" autocomplete="off">
+        <label>Модель:</label>
+        <input type="text" name="model" required minlength="2" maxlength="100"
+               value="{{ terminal.model }}">
+
+        <label>Версия прошивки:</label>
+        <input type="text" name="firmware_version" required minlength="1" maxlength="50"
+               value="{{ terminal.firmware_version }}">
+
+        <label>Серийный номер:</label>
+        <input type="text" name="serial_number" required minlength="3" maxlength="50"
+               pattern="[A-Za-z0-9\-]+"
+               title="Только латиница, цифры и дефис"
+               value="{{ terminal.serial_number }}">
+
+        <label>Номер партии:</label>
+        <input type="text" name="box_number" required minlength="1" maxlength="50"
+               value="{{ terminal.box_number }}">
+
+        <label>Статус:</label>
+        <select name="status" required id="statusSelect">
+            <option value="warehouse" {% if terminal.status == 'warehouse' %}selected{% endif %}>Склад</option>
+            <option value="reserved" {% if terminal.status == 'reserved' %}selected{% endif %}>Забронирован</option>
+            <option value="defective" {% if terminal.status == 'defective' %}selected{% endif %}>Брак</option>
+            <option value="repair" {% if terminal.status == 'repair' %}selected{% endif %}>В ремонте</option>
+            <option value="shipped" {% if terminal.status == 'shipped' %}selected{% endif %}>Отгружен</option>
         </select>
 
-        <label>Комментарий к браку:</label>
-        <textarea name="defect_comment" rows="3" minlength="5" maxlength="500">{{ terminal.defect_comment or '' }}</textarea>
-    </div>
+        <div id="bankBlock" style="display: none;">
+            <label>Банк:</label>
+            <input type="text" name="bank" minlength="2" maxlength="100"
+                   value="{{ terminal.bank or '' }}"
+                   placeholder="Название банка">
+        </div>
 
-    <label>Дата прихода:</label>
-    <input type="date" name="arrival_date" required
-           min="2020-01-01" max="{{ today }}"
-           value="{{ terminal.arrival_date.strftime('%Y-%m-%d') }}">
+        <div id="defectBlock" style="display: none;">
+            <label>Тип брака:</label>
+            <select name="defect_type">
+                <option value="">—</option>
+                <option value="display" {% if terminal.defect_type == 'display' %}selected{% endif %}>Экран</option>
+                <option value="battery" {% if terminal.defect_type == 'battery' %}selected{% endif %}>Батарея</option>
+                <option value="reader" {% if terminal.defect_type == 'reader' %}selected{% endif %}>Считыватель</option>
+                <option value="firmware" {% if terminal.defect_type == 'firmware' %}selected{% endif %}>Прошивка</option>
+                <option value="case" {% if terminal.defect_type == 'case' %}selected{% endif %}>Корпус</option>
+                <option value="other" {% if terminal.defect_type == 'other' %}selected{% endif %}>Иное</option>
+            </select>
 
-    <button type="submit">Сохранить</button>
-</form>
+            <label>Комментарий к браку:</label>
+            <textarea name="defect_comment" rows="3" minlength="5" maxlength="500"
+                      placeholder="Опишите проблему">{{ terminal.defect_comment or '' }}</textarea>
+        </div>
 
+        <label>Дата прихода:</label>
+        <input type="date" name="arrival_date" required
+               min="2020-01-01" max="{{ today }}"
+               value="{{ terminal.arrival_date.strftime('%Y-%m-%d') }}">
+
+        <div class="form-actions">
+            <button type="submit" class="btn">
+                <i data-lucide="save"></i>
+                <span>Сохранить</span>
+            </button>
+            <a href="/terminals/{{ terminal.id }}" class="btn secondary">
+                <i data-lucide="x"></i>
+                <span>Отмена</span>
+            </a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
     const statusSelect = document.getElementById('statusSelect');
     const defectBlock = document.getElementById('defectBlock');
@@ -72,22 +112,18 @@
     function toggleBlocks() {
         const val = statusSelect.value;
 
-        // Блок брака
         const showDefect = (val === 'defective' || val === 'repair');
         defectBlock.style.display = showDefect ? 'block' : 'none';
-        defectBlock.querySelectorAll('select, textarea, input').forEach(el => {
-            el.required = showDefect;
-        });
+        defectBlock.querySelectorAll('select, textarea').forEach(el => el.required = showDefect);
 
-        // Блок банка
         const showBank = (val === 'reserved' || val === 'shipped');
         bankBlock.style.display = showBank ? 'block' : 'none';
-        bankBlock.querySelectorAll('input').forEach(el => {
-            el.required = showBank;
-        });
+        bankBlock.querySelectorAll('input').forEach(el => el.required = showBank);
     }
 
     statusSelect.addEventListener('change', toggleBlocks);
     toggleBlocks();
+
+    lucide.createIcons();
 </script>
 {% endblock %}

@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -66,31 +68,17 @@ async def user_add(
             role=role
         )
     except Exception as e:
-        users = db.query(User).order_by(User.id).all()
-        return templates.TemplateResponse(
-            "admin_users.html",
-            {
-                "request": request,
-                "users": users,
-                "error": format_validation_error(e),
-                "current_user": admin,
-                "form_data": {"username": username, "role": role}
-            }
+        return RedirectResponse(
+            url=f"/admin/users?error={quote(format_validation_error(e))}",
+            status_code=303
         )
 
     # Проверка на дубликат
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
-        users = db.query(User).order_by(User.id).all()
-        return templates.TemplateResponse(
-            "admin_users.html",
-            {
-                "request": request,
-                "users": users,
-                "error": f"Пользователь {data.username} уже существует",
-                "current_user": admin,
-                "form_data": {"username": username, "role": role}
-            }
+        return RedirectResponse(
+            url=f"/admin/users?error={quote(f'Пользователь {data.username} уже существует')}",
+            status_code=303
         )
 
     user = User(
@@ -101,7 +89,10 @@ async def user_add(
     db.add(user)
     db.commit()
 
-    return RedirectResponse(url="/admin/users", status_code=303)
+    return RedirectResponse(
+        url=f"/admin/users?success={quote('Пользователь создан')}",
+        status_code=303
+    )
 
 
 @router.post("/users/{user_id}/delete")
@@ -115,15 +106,9 @@ async def user_delete(
         return HTMLResponse("Доступ запрещён", status_code=403)
 
     if admin.id == user_id:
-        users = db.query(User).order_by(User.id).all()
-        return templates.TemplateResponse(
-            "admin_users.html",
-            {
-                "request": request,
-                "users": users,
-                "error": "Нельзя удалить самого себя",
-                "current_user": admin
-            }
+        return RedirectResponse(
+            url=f"/admin/users?error={quote('Нельзя удалить самого себя')}",
+            status_code=303
         )
 
     user = db.query(User).filter(User.id == user_id).first()
@@ -134,4 +119,7 @@ async def user_delete(
         db.delete(user)
         db.commit()
 
-    return RedirectResponse(url="/admin/users", status_code=303)
+    return RedirectResponse(
+        url=f"/admin/users?success={quote('Пользователь удалён')}",
+        status_code=303
+    )

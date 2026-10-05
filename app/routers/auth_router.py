@@ -10,28 +10,8 @@ from app.auth import hash_password, verify_password, create_access_token, get_cu
 
 router = APIRouter()
 from app.templates import templates
+from urllib.parse import quote
 
-
-def create_first_admin(db: Session):
-    admin = db.query(User).filter(User.username == "admin").first()
-    if not admin:
-        admin = User(
-            username="admin",
-            password_hash=hash_password("admin"),
-            role="admin"
-        )
-        db.add(admin)
-        db.commit()
-
-
-@router.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
-    db = next(get_db())
-    try:
-        create_first_admin(db)
-    finally:
-        db.close()
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -46,12 +26,13 @@ async def login(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    from urllib.parse import quote
+    
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse(
-            "login.html",
-            {"request": request, "error": "Неверный логин или пароль"},
-            status_code=401
+        return RedirectResponse(
+            url=f"/auth/login?error={quote('Неверный логин или пароль')}",
+            status_code=303
         )
     
     token = create_access_token(data={"sub": str(user.id)})

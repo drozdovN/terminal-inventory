@@ -39,7 +39,7 @@
 <!-- Фильтры -->
 <div class="card filter-card">
     <form action="/terminals" method="get" class="filters-form">
-        <div class="filters-row">
+                <div class="filters-row">
             <div class="filter-item">
                 <label>Серийный номер</label>
                 <input type="text" name="serial" placeholder="SN..." value="{{ filters.serial or '' }}" autocomplete="off">
@@ -51,6 +51,15 @@
             <div class="filter-item">
                 <label>Партия</label>
                 <input type="text" name="box" placeholder="Партия..." value="{{ filters.box or '' }}" autocomplete="off">
+            </div>
+            <div class="filter-item">
+                <label>Банк</label>
+                <select name="bank">
+                    <option value="">Все</option>
+                    {% for b in banks %}
+                    <option value="{{ b }}" {% if filters.bank == b %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="filter-item">
                 <label>Статус</label>
@@ -181,7 +190,7 @@
 {% endif %}
 
 <!-- Скрытая форма массовой смены -->
-<form id="bulkFormHidden" action="/terminals/bulk-status" method="post" style="display: none;">
+<form id="bulkFormHidden" action="/terminals/bulk-status" method="post" style="display: none;" autocomplete="off">
     <input type="hidden" name="terminal_ids" id="bulkTerminalIds">
     <input type="hidden" name="new_status" id="bulkStatusHidden">
     <input type="hidden" name="bank" id="bulkBankHidden">

@@ -1,58 +1,151 @@
 {% extends "base.html" %}
+
+{% block title %}Партии{% endblock %}
+
+{% block breadcrumb %}
+    <span>Партии</span>
+{% endblock %}
+
 {% block content %}
-<h1>Партии</h1>
 
-<table>
-    <tr>
-        <th>Номер партии</th>
-        <th>Всего</th>
-        <th>Склад</th>
-        <th>Забронировано</th>
-        <th>Брак</th>
-        <th>В ремонте</th>
-        <th>Отгружено</th>
-    </tr>
-    {% for box in boxes %}
-    <tr>
-        <td><a href="/boxes?box={{ box.box_number }}">{{ box.box_number }}</a></td>
-        <td>{{ box.total }}</td>
-        <td>{{ box.warehouse }}</td>
-        <td>{{ box.reserved }}</td>
-        <td>{{ box.defective }}</td>
-        <td>{{ box.repair }}</td>
-        <td>{{ box.shipped }}</td>
-    </tr>
-    {% endfor %}
-</table>
+<!-- Хлебные крошки (синяя плашка) -->
+<div class="page-header">
+    <div class="page-badge">
+        <i data-lucide="package"></i>
+        <span>Партии</span>
+    </div>
+</div>
 
-{% if selected_box %}
-    <h2>Терминалы в коробке {{ selected_box }}</h2>
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Модель</th>
-            <th>Серийный номер</th>
-            <th>Статус</th>
-            <th>Действия</th>
-        </tr>
-        {% for t in terminals %}
-        <tr>
-            <td>{{ t.id }}</td>
-            <td>{{ t.model }}</td>
-            <td>{{ t.serial_number }}</td>
-            <td>
-                <span class="status-badge status-{{ t.status }}">
-                    {% if t.status == 'warehouse' %}Склад
-                    {% elif t.status == 'reserved' %}Забронировано
-                    {% elif t.status == 'defective' %}Брак
-                    {% elif t.status == 'repair' %}Ремонт
-                    {% elif t.status == 'shipped' %}Отгружено
-                    {% else %}{{ t.status }}{% endif %}
-                </span>
-            </td>
-            <td><a href="/terminals/{{ t.id }}" class="btn small">📋</a></td>
-        </tr>
-        {% endfor %}
+<!-- Таблица партий -->
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Номер партии</th>
+                <th style="text-align: center;">Всего</th>
+                <th style="text-align: center;">Склад</th>
+                <th style="text-align: center;">Забронировано</th>
+                <th style="text-align: center;">Брак</th>
+                <th style="text-align: center;">В ремонте</th>
+                <th style="text-align: center;">Отгружено</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in boxes %}
+            <tr>
+                <td>
+                    <a href="/boxes?box={{ b.box_number }}" class="link-primary">
+                        {{ b.box_number }}
+                    </a>
+                </td>
+                <td style="text-align: center;">
+                    <strong>{{ b.total }}</strong>
+                </td>
+                <td style="text-align: center;">
+                    {% if b.warehouse > 0 %}
+                    <span class="status-badge status-warehouse">{{ b.warehouse }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    {% if b.reserved > 0 %}
+                    <span class="status-badge status-reserved">{{ b.reserved }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    {% if b.defective > 0 %}
+                    <span class="status-badge status-defective">{{ b.defective }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    {% if b.repair > 0 %}
+                    <span class="status-badge status-repair">{{ b.repair }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">
+                    {% if b.shipped > 0 %}
+                    <span class="status-badge status-shipped">{{ b.shipped }}</span>
+                    {% else %}
+                    <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
+
+    {% if not boxes %}
+    <div class="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>Партий не найдено</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Если выбрана партия — показываем терминалы внутри -->
+{% if selected_box %}
+<div class="card" style="margin-top: 16px;">
+    <div class="card-header-block">
+        <div class="card-icon">
+            <i data-lucide="list"></i>
+        </div>
+        <h2>Терминалы в партии {{ selected_box }}</h2>
+    </div>
+
+    {% if terminals %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Серийный номер</th>
+                <th>Модель</th>
+                <th>Прошивка</th>
+                <th>Статус</th>
+                <th>Банк</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in terminals %}
+            <tr>
+                <td>
+                    <a href="/terminals/{{ t.id }}" class="link-primary">{{ t.serial_number }}</a>
+                </td>
+                <td>{{ t.model }}</td>
+                <td>{{ t.firmware_version }}</td>
+                <td>
+                    <span class="status-badge status-{{ t.status }}">
+                        {% if t.status == 'warehouse' %}Склад
+                        {% elif t.status == 'reserved' %}Забронировано
+                        {% elif t.status == 'defective' %}Брак
+                        {% elif t.status == 'repair' %}Ремонт
+                        {% elif t.status == 'shipped' %}Отгружено
+                        {% endif %}
+                    </span>
+                </td>
+                <td>{{ t.bank or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="inbox"></i>
+        <p>В этой партии нет терминалов</p>
+    </div>
+    {% endif %}
+</div>
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    lucide.createIcons();
+</script>
 {% endblock %}
