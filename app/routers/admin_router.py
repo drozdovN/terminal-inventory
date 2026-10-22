@@ -16,7 +16,7 @@ router = APIRouter()
 
 def check_admin(request: Request, db: Session):
     user = get_user_from_cookie(request, db)
-    if not user or user.role != "admin":
+    if not user or user.role not in ("admin", "superadmin"):
         return None
     return user
 
@@ -112,10 +112,16 @@ async def user_delete(
         )
 
     user = db.query(User).filter(User.id == user_id).first()
+    
+    # ГЛАВНАЯ ПРОВЕРКА: обычный админ не может удалить superadmin
+    if user and user.role == "superadmin" and admin.role != "superadmin":
+        return RedirectResponse(
+            url=f"/admin/users?error={quote('Вы не можете удалить главного администратора')}",
+            status_code=303
+        )
+
     if user:
-        # Удаляем все записи истории, связанные с этим пользователем
         db.query(StatusHistory).filter(StatusHistory.changed_by == user_id).delete()
-        # Удаляем пользователя
         db.delete(user)
         db.commit()
 

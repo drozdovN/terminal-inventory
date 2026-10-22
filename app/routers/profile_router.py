@@ -60,7 +60,7 @@ async def profile_update_basic(
         return RedirectResponse(url="/auth/login", status_code=303)
 
     # Менять логин может только админ
-    if user.role != "admin":
+    if user.role not in ("admin", "superadmin"):
         return RedirectResponse(
             url=f"/profile?tab=basic&error={quote('Только администратор может менять логин')}",
             status_code=303

@@ -8,13 +8,6 @@
 
 {% block content %}
 
-<!-- Хлебные крошки (синяя плашка) -->
-<div class="page-header">
-    <div class="page-badge">
-        <i data-lucide="users"></i>
-        <span>Пользователи</span>
-    </div>
-</div>
 
 {% if error %}
 <div class="error">{{ error }}</div>
@@ -84,7 +77,9 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if u.role == 'admin' %}
+                    {% if u.role == 'superadmin' %}
+                    <span class="role-badge role-superadmin">Главный админ</span>
+                    {% elif u.role == 'admin' %}
                     <span class="role-badge role-admin">Администратор</span>
                     {% else %}
                     <span class="role-badge role-warehouse">Склад</span>
@@ -93,11 +88,15 @@
                 <td>{{ u.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                 <td style="text-align: right;">
                     {% if u.id != current_user.id %}
-                    <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline; margin:0; padding:0;" onsubmit="return confirm('Удалить пользователя {{ u.username }}?')">
-                        <button type="submit" class="btn danger small" title="Удалить">
-                            <i data-lucide="trash-2"></i>
-                        </button>
-                    </form>
+                        {% if not (u.role == 'superadmin' and current_user.role != 'superadmin') %}
+                        <form action="/admin/users/{{ u.id }}/delete" method="post" style="display:inline; margin:0; padding:0;">
+                            <button type="button" class="btn danger small" title="Удалить" onclick="showUserDeleteModal(this.closest('form'), '{{ u.username }}')">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
                     {% else %}
                     <span class="text-muted">—</span>
                     {% endif %}

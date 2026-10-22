@@ -33,8 +33,12 @@
 
     <form action="/terminals/{{ terminal.id }}/edit" method="post" autocomplete="off">
         <label>Модель:</label>
-        <input type="text" name="model" required minlength="2" maxlength="100"
-               value="{{ terminal.model }}">
+        <select name="model" required data-placeholder="Выберите модель">
+            <option value="" selected disabled></option>
+            {% for m in models %}
+            <option value="{{ m }}" {% if terminal.model == m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+        </select>
 
         <label>Версия прошивки:</label>
         <input type="text" name="firmware_version" required minlength="1" maxlength="50"
@@ -61,9 +65,12 @@
 
         <div id="bankBlock" style="display: none;">
             <label>Банк:</label>
-            <input type="text" name="bank" minlength="2" maxlength="100"
-                   value="{{ terminal.bank or '' }}"
-                   placeholder="Название банка">
+            <select name="bank" data-placeholder="Выберите банк">
+                <option value="" selected disabled></option>
+                {% for b in banks %}
+                <option value="{{ b }}" {% if terminal.bank == b %}selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+            </select>
         </div>
 
         <div id="defectBlock" style="display: none;">
@@ -82,11 +89,6 @@
             <textarea name="defect_comment" rows="3" minlength="5" maxlength="500"
                       placeholder="Опишите проблему">{{ terminal.defect_comment or '' }}</textarea>
         </div>
-
-        <label>Дата прихода:</label>
-        <input type="date" name="arrival_date" required
-               min="2020-01-01" max="{{ today }}"
-               value="{{ terminal.arrival_date.strftime('%Y-%m-%d') }}">
 
         <div class="form-actions">
             <button type="submit" class="btn">
@@ -118,7 +120,7 @@
 
         const showBank = (val === 'reserved' || val === 'shipped');
         bankBlock.style.display = showBank ? 'block' : 'none';
-        bankBlock.querySelectorAll('input').forEach(el => el.required = showBank);
+        bankBlock.querySelectorAll('select').forEach(el => el.required = showBank);
     }
 
     statusSelect.addEventListener('change', toggleBlocks);

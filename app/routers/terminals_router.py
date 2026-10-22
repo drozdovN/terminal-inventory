@@ -17,6 +17,7 @@ from app.models import Terminal, StatusHistory, User
 from app.auth import SECRET_KEY, ALGORITHM
 from app.schemas import TerminalCreate, TerminalUpdate, StatusChange
 from app.templates import templates
+from app.constants import BANKS, MODELS
 
 router = APIRouter()
 
@@ -77,11 +78,12 @@ async def terminals_list(
     total_pages = (total + per_page - 1) // per_page
     terminals = query.order_by(Terminal.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
-    banks_query = db.query(Terminal.bank).filter(
+    # Список банков для фильтра (берем из констант + те, что уже есть в базе)
+    existing_banks = [b[0] for b in db.query(Terminal.bank).filter(
         Terminal.bank.isnot(None),
         Terminal.bank != ''
-    ).distinct().order_by(Terminal.bank).all()
-    banks = [b[0] for b in banks_query]
+    ).distinct().all()]
+    banks = list(set(BANKS + existing_banks))
 
     return templates.TemplateResponse(
         "terminals_list.html",
@@ -93,6 +95,7 @@ async def terminals_list(
             "per_page": per_page,
             "total_pages": total_pages,
             "banks": banks,
+            "models": MODELS,  # Можно тоже передать, если нужно фильтровать по модели из списка
             "filters": {
                 "status": status,
                 "serial": serial,
@@ -114,7 +117,7 @@ async def terminals_export(db: Session = Depends(get_db)):
     ws.title = "Терминалы"
 
     headers = ["ID", "Модель", "Прошивка", "Серийный номер", "Партия",
-               "Статус", "Банк", "Тип брака", "Комментарий к браку", "Дата прихода"]
+               "Статус", "Банк", "Тип брака", "Комментарий к браку"]
     ws.append(headers)
 
     for t in terminals:
@@ -128,7 +131,6 @@ async def terminals_export(db: Session = Depends(get_db)):
             t.bank or '',
             t.defect_type or '',
             t.defect_comment or '',
-            t.arrival_date.strftime('%Y-%m-%d') if t.arrival_date else ''
         ])
 
     output = io.BytesIO()
@@ -183,12 +185,6 @@ async def terminal_import(
                 serial = str(row[2]).strip() if row[2] else ""
                 box = str(row[3]).strip() if row[3] else ""
 
-                arrival = row[4]
-                if hasattr(arrival, 'strftime'):
-                    arrival_str = arrival.strftime('%Y-%m-%d')
-                else:
-                    arrival_str = str(arrival).strip() if arrival else ""
-
                 if not serial:
                     skipped += 1
                     continue
@@ -199,7 +195,6 @@ async def terminal_import(
                         firmware_version=firmware or "—",
                         serial_number=serial,
                         box_number=box or "—",
-                        arrival_date=arrival_str if arrival_str else date.today()
                     )
                 except Exception as ve:
                     errors.append(f"Строка {row_idx}: {format_validation_error(ve)}")
@@ -216,7 +211,6 @@ async def terminal_import(
                     firmware_version=data.firmware_version,
                     serial_number=data.serial_number,
                     box_number=data.box_number,
-                    arrival_date=data.arrival_date,
                     status="warehouse"
                 )
                 db.add(terminal)
@@ -259,7 +253,9 @@ async def terminal_import(
 async def terminal_add_form(request: Request):
     return templates.TemplateResponse("terminal_add.html", {
         "request": request,
-        "today": date.today().strftime('%Y-%m-%d')
+        "today": date.today().strftime('%Y-%m-%d'),
+        "banks": BANKS,
+        "models": MODELS
     })
 
 
@@ -270,7 +266,6 @@ async def terminal_add(
     firmware_version: str = Form(...),
     serial_number: str = Form(...),
     box_number: str = Form(...),
-    arrival_date: str = Form(...),
     db: Session = Depends(get_db)
 ):
     user = get_user_from_cookie(request, db)
@@ -284,7 +279,6 @@ async def terminal_add(
             firmware_version=firmware_version.strip(),
             serial_number=serial_number.strip(),
             box_number=box_number.strip(),
-            arrival_date=arrival_date
         )
     except Exception as e:
         return RedirectResponse(
@@ -305,7 +299,6 @@ async def terminal_add(
         firmware_version=data.firmware_version,
         serial_number=data.serial_number,
         box_number=data.box_number,
-        arrival_date=data.arrival_date,
         status="warehouse"
     )
     db.add(terminal)
@@ -536,7 +529,7 @@ async def terminal_edit_form(
     db: Session = Depends(get_db)
 ):
     user = get_user_from_cookie(request, db)
-    if not user or user.role != "admin":
+    if not user or user.role not in ("admin", "superadmin"):
         return HTMLResponse("Доступ запрещён. Требуются права администратора.", status_code=403)
 
     terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()
@@ -545,7 +538,13 @@ async def terminal_edit_form(
 
     return templates.TemplateResponse(
         "terminal_edit.html",
-        {"request": request, "terminal": terminal, "today": date.today().strftime('%Y-%m-%d')}
+        {
+            "request": request, 
+            "terminal": terminal, 
+            "today": date.today().strftime('%Y-%m-%d'),
+            "banks": BANKS,
+            "models": MODELS
+        }
     )
 
 
@@ -561,11 +560,10 @@ async def terminal_edit(
     bank: Optional[str] = Form(None),
     defect_type: Optional[str] = Form(None),
     defect_comment: Optional[str] = Form(None),
-    arrival_date: str = Form(...),
     db: Session = Depends(get_db)
 ):
     user = get_user_from_cookie(request, db)
-    if not user or user.role != "admin":
+    if not user or user.role not in ("admin", "superadmin"):
         return HTMLResponse("Доступ запрещён. Требуются права администратора.", status_code=403)
 
     terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()
@@ -583,7 +581,6 @@ async def terminal_edit(
             bank=bank.strip() if bank else None,
             defect_type=defect_type,
             defect_comment=defect_comment.strip() if defect_comment else None,
-            arrival_date=arrival_date
         )
     except Exception as e:
         return RedirectResponse(
@@ -614,7 +611,7 @@ async def terminal_edit(
     terminal.bank = data.bank if data.status in ("reserved", "shipped") else None
     terminal.defect_type = data.defect_type if data.status in ("defective", "repair") else None
     terminal.defect_comment = data.defect_comment if data.status in ("defective", "repair") else None
-    terminal.arrival_date = data.arrival_date
+   
 
     if old_status != data.status or old_bank != terminal.bank or old_defect_type != terminal.defect_type:
         history = StatusHistory(
@@ -646,7 +643,7 @@ async def terminal_delete(
     db: Session = Depends(get_db)
 ):
     user = get_user_from_cookie(request, db)
-    if not user or user.role != "admin":
+    if not user or user.role not in ("admin", "superadmin"):
         return HTMLResponse("Доступ запрещён. Требуются права администратора.", status_code=403)
 
     terminal = db.query(Terminal).filter(Terminal.id == terminal_id).first()

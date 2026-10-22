@@ -33,16 +33,7 @@ class TerminalCreate(BaseModel):
     firmware_version: constr(min_length=1, max_length=50)
     serial_number: constr(min_length=3, max_length=50, pattern=r'^[A-Za-z0-9\-]+$')
     box_number: constr(min_length=1, max_length=50)
-    arrival_date: date
-
-    @field_validator('arrival_date')
-    @classmethod
-    def validate_arrival_date(cls, v):
-        if v > date.today():
-            raise ValueError('Дата прихода не может быть в будущем')
-        if v.year < 2020:
-            raise ValueError('Дата прихода слишком ранняя')
-        return v
+    
 
 
 class TerminalUpdate(BaseModel):
@@ -54,16 +45,8 @@ class TerminalUpdate(BaseModel):
     bank: Optional[str] = None
     defect_type: Optional[str] = None
     defect_comment: Optional[str] = None
-    arrival_date: date
+  
 
-    @field_validator('arrival_date')
-    @classmethod
-    def validate_arrival_date(cls, v):
-        if v > date.today():
-            raise ValueError('Дата прихода не может быть в будущем')
-        if v.year < 2020:
-            raise ValueError('Дата прихода слишком ранняя')
-        return v
 
     @field_validator('status')
     @classmethod
@@ -98,7 +81,6 @@ class TerminalOut(BaseModel):
     firmware_version: str
     serial_number: str
     box_number: str
-    arrival_date: date
     status: str
     defect_type: Optional[str] = None
     defect_comment: Optional[str] = None

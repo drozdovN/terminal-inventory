@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 
 from app.database import get_db
 from app.models import StatusHistory, User
 from app.auth import SECRET_KEY, ALGORITHM
+from app.templates import templates
 
 router = APIRouter()
-from app.templates import templates
 
 
 def get_current_user(request: Request, db: Session):
@@ -27,8 +26,8 @@ def get_current_user(request: Request, db: Session):
 @router.get("", response_class=HTMLResponse)
 async def history_list(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
-    if not user or user.role != "admin":
-        return HTMLResponse("Доступ запрещён", status_code=403)
+    if not user or user.role not in ("admin", "superadmin"):
+        return HTMLResponse("Доступ запрещён. Требуются права администратора.", status_code=403)
 
     history = db.query(StatusHistory).order_by(StatusHistory.changed_at.desc()).limit(100).all()
     return templates.TemplateResponse(

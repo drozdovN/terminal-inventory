@@ -30,7 +30,6 @@ class Terminal(Base):
     firmware_version = Column(String, nullable=False)
     serial_number = Column(String, unique=True, nullable=False)
     box_number = Column(String, nullable=False, index=True)
-    arrival_date = Column(Date, nullable=False, default=date.today)
     status = Column(String, nullable=False, default="warehouse", index=True)
     defect_type = Column(String, nullable=True)
     defect_comment = Column(Text, nullable=True)

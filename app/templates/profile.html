@@ -31,7 +31,9 @@
                     <span>Роль</span>
                 </div>
                 <div class="profile-info-value">
-                    {% if user.role == 'admin' %}Администратор{% else %}Склад{% endif %}
+                    {% if user.role == 'superadmin' %}Главный админ
+                    {% elif user.role == 'admin' %}Администратор
+                    {% else %}Склад{% endif %}
                 </div>
             </div>
 
@@ -45,7 +47,9 @@
         </div>
 
         <div class="profile-role-badge">
-            {% if user.role == 'admin' %}
+            {% if user.role == 'superadmin' %}
+            <span class="role-badge role-superadmin">Главный админ</span>
+            {% elif user.role == 'admin' %}
             <span class="role-badge role-admin">Администратор</span>
             {% else %}
             <span class="role-badge role-warehouse">Склад</span>
@@ -66,8 +70,6 @@
             </a>
         </div>
 
-    
-
         {% if active_tab == 'basic' %}
         <form action="/profile/basic" method="post" style="max-width: 100%;" autocomplete="off">
             <label>Логин:</label>
@@ -75,13 +77,13 @@
                    pattern="[A-Za-z0-9_]+"
                    title="Только латиница, цифры и _"
                    value="{{ user.username }}"
-                   {% if user.role != 'admin' %}disabled{% endif %}>
+                   {% if user.role not in ('admin', 'superadmin') %}disabled{% endif %}>
 
-            {% if user.role != 'admin' %}
+            {% if user.role not in ('admin', 'superadmin') %}
             <p class="form-hint">Только администратор может менять логин.</p>
             {% endif %}
 
-            {% if user.role == 'admin' %}
+            {% if user.role in ('admin', 'superadmin') %}
             <button type="submit" class="btn">
                 <i data-lucide="save"></i>
                 <span>Сохранить</span>

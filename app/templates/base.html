@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CRM склада{% endblock %}</title>
+    
+    <!-- Tom Select CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.css" rel="stylesheet">
+    
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="stylesheet" href="/static/style.css?v=99">
+    <link rel="stylesheet" href="/static/style.css?v=104">
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
@@ -45,7 +49,7 @@
                     <span>Партии</span>
                 </a>
 
-                {% if cu and cu.role == 'admin' %}
+                {% if cu and cu.role in ('admin', 'superadmin')%}
                 <a href="/history" class="nav-item {% if request.url.path.startswith('/history') %}active{% endif %}">
                     <i data-lucide="history"></i>
                     <span>История</span>
@@ -114,9 +118,23 @@
             </div>
         </div>
     </div>
+    <!-- Модалка удаления пользователя -->
+    <div class="modal-overlay" id="deleteUserModal">
+        <div class="modal">
+            <h3>Удаление пользователя</h3>
+            <p class="modal-subtitle">Вы уверены, что хотите удалить пользователя <strong id="deleteUserName"></strong>?</p>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeUserModal()">Отмена</button>
+                <button class="btn danger" id="confirmUserDeleteBtn">Удалить</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Toast-уведомления -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Tom Select JS -->
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.complete.min.js"></script>
 
     <script>
         lucide.createIcons();
@@ -141,7 +159,17 @@
             document.documentElement.setAttribute('data-theme', saved);
         })();
 
-        // Модалка удаления
+                 // Инициализация Tom Select
+        document.querySelectorAll('select').forEach(function(el) {
+            new TomSelect(el, {
+                create: false,
+                hideSelected: true,
+                hidePlaceholder: true,
+                placeholder: el.getAttribute('data-placeholder') || 'Выберите...'
+            });
+        });
+
+        // Модалка удаления терминала
         let deleteForm = null;
 
         function showDeleteModal(form, terminalId) {
@@ -163,6 +191,32 @@
         document.getElementById('deleteModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeModal();
+            }
+        });
+
+        // ============ Модалка удаления пользователя ============
+        let userDeleteForm = null;
+
+        function showUserDeleteModal(form, username) {
+            userDeleteForm = form;
+            document.getElementById('deleteUserName').textContent = username;
+            document.getElementById('deleteUserModal').classList.add('show');
+        }
+
+        function closeUserModal() {
+            document.getElementById('deleteUserModal').classList.remove('show');
+            userDeleteForm = null;
+        }
+
+        document.getElementById('confirmUserDeleteBtn').addEventListener('click', function() {
+            if (userDeleteForm) {
+                userDeleteForm.submit();
+            }
+        });
+
+        document.getElementById('deleteUserModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeUserModal();
             }
         });
 
